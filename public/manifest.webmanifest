@@ -1,0 +1,14 @@
+{
+  "name": "Sideline IQ",
+  "short_name": "Sideline IQ",
+  "description": "Coach smarter. Win more. Live event capture and coaching insights for grassroots Ladies Gaelic Football.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f5ef",
+  "theme_color": "#1a2649",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "any", "type": "image/x-icon" }
+  ]
+}

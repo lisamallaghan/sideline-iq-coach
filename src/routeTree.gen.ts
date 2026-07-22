@@ -9,38 +9,170 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as PlayersRouteImport } from './routes/players'
+import { Route as NewMatchRouteImport } from './routes/new-match'
+import { Route as MatchRouteImport } from './routes/match'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MatchTimelineRouteImport } from './routes/match.timeline'
+import { Route as MatchSummaryRouteImport } from './routes/match.summary'
+import { Route as MatchLiveRouteImport } from './routes/match.live'
+import { Route as MatchDashboardRouteImport } from './routes/match.dashboard'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlayersRoute = PlayersRouteImport.update({
+  id: '/players',
+  path: '/players',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NewMatchRoute = NewMatchRouteImport.update({
+  id: '/new-match',
+  path: '/new-match',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MatchRoute = MatchRouteImport.update({
+  id: '/match',
+  path: '/match',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MatchTimelineRoute = MatchTimelineRouteImport.update({
+  id: '/timeline',
+  path: '/timeline',
+  getParentRoute: () => MatchRoute,
+} as any)
+const MatchSummaryRoute = MatchSummaryRouteImport.update({
+  id: '/summary',
+  path: '/summary',
+  getParentRoute: () => MatchRoute,
+} as any)
+const MatchLiveRoute = MatchLiveRouteImport.update({
+  id: '/live',
+  path: '/live',
+  getParentRoute: () => MatchRoute,
+} as any)
+const MatchDashboardRoute = MatchDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => MatchRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/match': typeof MatchRouteWithChildren
+  '/new-match': typeof NewMatchRoute
+  '/players': typeof PlayersRoute
+  '/settings': typeof SettingsRoute
+  '/match/dashboard': typeof MatchDashboardRoute
+  '/match/live': typeof MatchLiveRoute
+  '/match/summary': typeof MatchSummaryRoute
+  '/match/timeline': typeof MatchTimelineRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/match': typeof MatchRouteWithChildren
+  '/new-match': typeof NewMatchRoute
+  '/players': typeof PlayersRoute
+  '/settings': typeof SettingsRoute
+  '/match/dashboard': typeof MatchDashboardRoute
+  '/match/live': typeof MatchLiveRoute
+  '/match/summary': typeof MatchSummaryRoute
+  '/match/timeline': typeof MatchTimelineRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/match': typeof MatchRouteWithChildren
+  '/new-match': typeof NewMatchRoute
+  '/players': typeof PlayersRoute
+  '/settings': typeof SettingsRoute
+  '/match/dashboard': typeof MatchDashboardRoute
+  '/match/live': typeof MatchLiveRoute
+  '/match/summary': typeof MatchSummaryRoute
+  '/match/timeline': typeof MatchTimelineRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/match'
+    | '/new-match'
+    | '/players'
+    | '/settings'
+    | '/match/dashboard'
+    | '/match/live'
+    | '/match/summary'
+    | '/match/timeline'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/match'
+    | '/new-match'
+    | '/players'
+    | '/settings'
+    | '/match/dashboard'
+    | '/match/live'
+    | '/match/summary'
+    | '/match/timeline'
+  id:
+    | '__root__'
+    | '/'
+    | '/match'
+    | '/new-match'
+    | '/players'
+    | '/settings'
+    | '/match/dashboard'
+    | '/match/live'
+    | '/match/summary'
+    | '/match/timeline'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  MatchRoute: typeof MatchRouteWithChildren
+  NewMatchRoute: typeof NewMatchRoute
+  PlayersRoute: typeof PlayersRoute
+  SettingsRoute: typeof SettingsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/players': {
+      id: '/players'
+      path: '/players'
+      fullPath: '/players'
+      preLoaderRoute: typeof PlayersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/new-match': {
+      id: '/new-match'
+      path: '/new-match'
+      fullPath: '/new-match'
+      preLoaderRoute: typeof NewMatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/match': {
+      id: '/match'
+      path: '/match'
+      fullPath: '/match'
+      preLoaderRoute: typeof MatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +180,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/match/timeline': {
+      id: '/match/timeline'
+      path: '/timeline'
+      fullPath: '/match/timeline'
+      preLoaderRoute: typeof MatchTimelineRouteImport
+      parentRoute: typeof MatchRoute
+    }
+    '/match/summary': {
+      id: '/match/summary'
+      path: '/summary'
+      fullPath: '/match/summary'
+      preLoaderRoute: typeof MatchSummaryRouteImport
+      parentRoute: typeof MatchRoute
+    }
+    '/match/live': {
+      id: '/match/live'
+      path: '/live'
+      fullPath: '/match/live'
+      preLoaderRoute: typeof MatchLiveRouteImport
+      parentRoute: typeof MatchRoute
+    }
+    '/match/dashboard': {
+      id: '/match/dashboard'
+      path: '/dashboard'
+      fullPath: '/match/dashboard'
+      preLoaderRoute: typeof MatchDashboardRouteImport
+      parentRoute: typeof MatchRoute
+    }
   }
 }
 
+interface MatchRouteChildren {
+  MatchDashboardRoute: typeof MatchDashboardRoute
+  MatchLiveRoute: typeof MatchLiveRoute
+  MatchSummaryRoute: typeof MatchSummaryRoute
+  MatchTimelineRoute: typeof MatchTimelineRoute
+}
+
+const MatchRouteChildren: MatchRouteChildren = {
+  MatchDashboardRoute: MatchDashboardRoute,
+  MatchLiveRoute: MatchLiveRoute,
+  MatchSummaryRoute: MatchSummaryRoute,
+  MatchTimelineRoute: MatchTimelineRoute,
+}
+
+const MatchRouteWithChildren = MatchRoute._addFileChildren(MatchRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  MatchRoute: MatchRouteWithChildren,
+  NewMatchRoute: NewMatchRoute,
+  PlayersRoute: PlayersRoute,
+  SettingsRoute: SettingsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
