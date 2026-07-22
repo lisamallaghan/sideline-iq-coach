@@ -8,8 +8,7 @@ import { MOCK_PLAYERS } from "@/data/players";
 import type { Player, Position } from "@/types";
 import { formatClock } from "@/lib/format";
 import { Button } from "@/components/ui/button";
-import { BarChart3, Flag, Pause, Play, Undo2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { BarChart3, Flag, Home as HomeIcon, ListOrdered, Pause, Play, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/match/live")({
@@ -248,9 +247,9 @@ function LiveNav() {
       <ul className="mx-auto grid max-w-md grid-cols-4">
         {[
           { to: "/match/live", label: "Live", icon: Play },
-          { to: "/match/timeline", label: "Timeline", icon: cn ? Flag : Flag },
+          { to: "/match/timeline", label: "Timeline", icon: ListOrdered },
           { to: "/match/dashboard", label: "Stats", icon: BarChart3 },
-          { to: "/", label: "Home", icon: Undo2 },
+          { to: "/", label: "Home", icon: HomeIcon },
         ].map(({ to, label, icon: Icon }) => (
           <li key={to}>
             <Link

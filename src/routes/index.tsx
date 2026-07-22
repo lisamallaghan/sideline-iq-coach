@@ -4,12 +4,9 @@ import {
   BarChart3,
   CalendarClock,
   ChevronRight,
-  History,
   Plus,
   Settings as SettingsIcon,
-  Trophy,
   Users,
-  Whistle,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { SectionCard } from "@/components/SectionCard";
