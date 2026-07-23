@@ -89,3 +89,15 @@ export interface Match extends MatchSetup {
   finishedAt?: number;
   status: "setup" | "live" | "finished";
 }
+
+export type PossessionOwner = "us" | "opp" | "out";
+
+export interface PossessionPeriod {
+  id: string;
+  owner: PossessionOwner;
+  startMs: number;
+  endMs?: number;
+  startMinute: number;
+  endMinute?: number;
+  endReason?: string;
+}

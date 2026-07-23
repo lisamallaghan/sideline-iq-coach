@@ -12,3 +12,10 @@ export function formatDate(iso: string) {
     month: "short",
   });
 }
+
+export function formatDuration(ms: number) {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
