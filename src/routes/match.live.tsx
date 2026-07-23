@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { PlayerEventSheet } from "@/components/PlayerEventSheet";
 import { useMatch, formatScore } from "@/lib/match-store";
 import { MOCK_PLAYERS } from "@/data/players";
