@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Match, MatchEvent, MatchSetup } from "@/types";
+import type { Match, MatchEvent, MatchSetup, Substitution } from "@/types";
 import type { PossessionOwner, PossessionPeriod } from "@/types";
 import { BENCH, STARTING_XV } from "@/data/players";
 import { EVENT_MAP } from "@/data/events";
@@ -19,8 +19,14 @@ interface MatchStore {
   startMatch: () => void;
   finishMatch: () => void;
   clearMatch: () => void;
-  addEvent: (input: { playerId: string; category: MatchEvent["category"]; type: MatchEvent["type"]; team?: "us" | "opp" }) => void;
+  addEvent: (input: { playerId?: string; category: MatchEvent["category"]; type: MatchEvent["type"]; team?: "us" | "opp" }) => void;
   undoLast: () => void;
+  lastEvent: MatchEvent | null;
+  substitutions: Substitution[];
+  performSubstitution: (offId: string, onId: string) => void;
+  activeStartingXV: string[];
+  activeBench: string[];
+  involvement: Record<string, number>;
   elapsedSec: number;
   currentMinute: number;
   currentHalf: 1 | 2;
@@ -71,6 +77,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
   const [possessionPeriods, setPossessionPeriods] = useState<PossessionPeriod[]>([]);
   const [possessionOwner, setPossessionOwner] = useState<PossessionOwner>("out");
   const [nowTick, setNowTick] = useState(0);
+  const [substitutions, setSubstitutions] = useState<Substitution[]>([]);
 
   useEffect(() => {
     if (match?.status !== "live") return;
@@ -90,6 +97,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     startRef.current = null;
     setPossessionPeriods([]);
     setPossessionOwner("out");
+    setSubstitutions([]);
   }, []);
 
   const startMatch = useCallback(() => {
@@ -109,6 +117,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     startRef.current = null;
     setPossessionPeriods([]);
     setPossessionOwner("out");
+    setSubstitutions([]);
   }, []);
 
   const currentMinute =
@@ -148,7 +157,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         if (!m) return m;
         const ev: MatchEvent = {
           id: newId(),
-          playerId: input.playerId,
+          playerId: input.playerId ?? "",
           category: input.category,
           type: input.type,
           minute: currentMinute,
@@ -166,10 +175,52 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     setMatch((m) => (m ? { ...m, events: m.events.slice(0, -1) } : m));
   }, []);
 
+  const performSubstitution = useCallback(
+    (offId: string, onId: string) => {
+      setSubstitutions((prev) => [
+        ...prev,
+        {
+          id: newId(),
+          offId,
+          onId,
+          minute: currentMinute,
+          half,
+          timestamp: Date.now(),
+        },
+      ]);
+    },
+    [currentMinute, half],
+  );
+
   const toggleHalf = useCallback(() => setHalf((h) => (h === 1 ? 2 : 1)), []);
 
   const ourScore = useMemo(() => tallyScore(match?.events ?? [], "us"), [match?.events]);
   const theirScore = useMemo(() => tallyScore(match?.events ?? [], "opp"), [match?.events]);
+
+  const { activeStartingXV, activeBench } = useMemo(() => {
+    const start = [...(match?.startingXV ?? [])];
+    const bench = [...(match?.bench ?? [])];
+    for (const s of substitutions) {
+      const offIdx = start.indexOf(s.offId);
+      const onIdx = bench.indexOf(s.onId);
+      if (offIdx !== -1 && onIdx !== -1) {
+        start[offIdx] = s.onId;
+        bench[onIdx] = s.offId;
+      }
+    }
+    return { activeStartingXV: start, activeBench: bench };
+  }, [match?.startingXV, match?.bench, substitutions]);
+
+  const involvement = useMemo(() => {
+    const acc: Record<string, number> = {};
+    for (const e of match?.events ?? []) {
+      if (!e.playerId) continue;
+      acc[e.playerId] = (acc[e.playerId] ?? 0) + 1;
+    }
+    return acc;
+  }, [match?.events]);
+
+  const lastEvent = match?.events.length ? match.events[match.events.length - 1] : null;
 
   const possessionStats = useMemo(() => {
     const now = Date.now();
@@ -199,6 +250,12 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     clearMatch,
     addEvent,
     undoLast,
+    lastEvent,
+    substitutions,
+    performSubstitution,
+    activeStartingXV,
+    activeBench,
+    involvement,
     elapsedSec,
     currentMinute,
     currentHalf: half,

@@ -101,3 +101,12 @@ export interface PossessionPeriod {
   endMinute?: number;
   endReason?: string;
 }
+
+export interface Substitution {
+  id: string;
+  offId: string;
+  onId: string;
+  minute: number;
+  half: 1 | 2;
+  timestamp: number;
+}
