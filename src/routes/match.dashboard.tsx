@@ -4,7 +4,8 @@ import { StatCard } from "@/components/StatCard";
 import { InsightCard } from "@/components/InsightCard";
 import { useMatch, formatScore } from "@/lib/match-store";
 import { EVENT_MAP } from "@/data/events";
-import { Activity, Target, TrendingUp, TrendingDown } from "lucide-react";
+import { Activity, TrendingUp, TrendingDown } from "lucide-react";
+import { formatDuration } from "@/lib/format";
 
 export const Route = createFileRoute("/match/dashboard")({
   head: () => ({
@@ -17,7 +18,7 @@ export const Route = createFileRoute("/match/dashboard")({
 });
 
 function Dashboard() {
-  const { match, ourScore, theirScore } = useMatch();
+  const { match, ourScore, theirScore, possessionStats } = useMatch();
   const events = match?.events ?? [];
 
   const shots = events.filter((e) => e.category === "shooting" && e.team === "us");
@@ -34,6 +35,8 @@ function Dashboard() {
 
   const momentum = turnoversWon - turnoversLost + scores.length;
   const momentumLabel = momentum >= 3 ? "Strong" : momentum >= 0 ? "Even" : "Under pressure";
+
+  const { usPct, oppPct, inPlayMs, outMs, usMs, oppMs } = possessionStats;
 
   return (
     <AppShell title="Dashboard" subtitle="Match Insights" back="/match/live" contentClassName="px-4 py-4 space-y-6">
@@ -61,23 +64,66 @@ function Dashboard() {
 
       <section>
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+          Possession
+        </h2>
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-elegant">
+          <div className="flex items-baseline justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Ardboe</p>
+              <p className="text-3xl font-bold tabular-nums text-accent">{usPct}%</p>
+              <p className="text-[11px] text-muted-foreground">{formatDuration(usMs)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Opposition</p>
+              <p className="text-3xl font-bold tabular-nums text-foreground">{oppPct}%</p>
+              <p className="text-[11px] text-muted-foreground">{formatDuration(oppMs)}</p>
+            </div>
+          </div>
+          <div className="mt-3 flex h-2 overflow-hidden rounded-full bg-muted">
+            <div className="bg-accent" style={{ width: `${usPct}%` }} />
+            <div className="bg-primary" style={{ width: `${oppPct}%` }} />
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+            <div className="rounded-xl bg-secondary/60 p-2">
+              <p className="text-muted-foreground">Ball in Play</p>
+              <p className="font-semibold tabular-nums text-foreground">{formatDuration(inPlayMs)}</p>
+            </div>
+            <div className="rounded-xl bg-secondary/60 p-2">
+              <p className="text-muted-foreground">Out of Play</p>
+              <p className="font-semibold tabular-nums text-foreground">{formatDuration(outMs)}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="mb-2 text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Coach Insights
         </h2>
         <div className="space-y-2">
           <InsightCard
             tone="positive"
-            title="Midfield is winning breaks"
-            body="You're recovering three of every four breaking balls around the middle third. Keep pushing runners off the shoulder to convert quicker."
+            title="Winning own kickouts"
+            body={`Retention at ${koPct}% on your own restarts. Keep varying the target to stop them reading it.`}
           />
           <InsightCard
             tone="warning"
-            title="Left flank is leaking possession"
-            body="Two of the last three turnovers lost came from the left wing. Consider dropping a runner deeper or switching the point of attack."
+            title="Midfield battle is tight"
+            body="Breaking ball 50/50 around the middle third. A runner off the shoulder could tip it in your favour."
           />
           <InsightCard
-            tone="insight"
-            title="Their kickout goes short under pressure"
-            body="When you push up, their goalkeeper has gone short 4 times. A press on the next restart could force another turnover."
+            tone={usPct >= 50 ? "positive" : "warning"}
+            title={usPct >= 50 ? "Controlling possession" : "Opposition dominating possession"}
+            body={`Ardboe ${usPct}% · Opposition ${oppPct}%. ${
+              usPct >= 50 ? "Keep the tempo and force them to chase." : "Slow the ball down and pick your moments."
+            }`}
+          />
+          <InsightCard
+            tone={conv >= 55 ? "positive" : conv >= 35 ? "insight" : "warning"}
+            title={conv >= 55 ? "Shot conversion is strong" : "Shot conversion needs work"}
+            body={`Converting ${conv}% of ${shots.length || 0} shots. ${
+              wides.length >= 3 ? `${wides.length} shots off target — check shot selection.` : "Keep taking the right shots."
+            }`}
           />
         </div>
       </section>
