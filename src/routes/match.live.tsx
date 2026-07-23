@@ -1,14 +1,14 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { PlayerEventSheet } from "@/components/PlayerEventSheet";
 import { useMatch, formatScore } from "@/lib/match-store";
 import { MOCK_PLAYERS } from "@/data/players";
 import type { Player, Position } from "@/types";
 import { formatClock } from "@/lib/format";
-import { Button } from "@/components/ui/button";
 import { BarChart3, Flag, Pause, Play, Undo2, Users, Wind } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { EVENT_MAP } from "@/data/events";
 import {
   Sheet,
   SheetContent,
@@ -50,17 +50,24 @@ function LiveMatch() {
     toggleHalf,
     possessionOwner,
     setPossession,
+    activeStartingXV,
+    activeBench,
+    involvement,
+    performSubstitution,
+    lastEvent,
   } = useMatch();
   const [selected, setSelected] = useState<Player | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [subOpen, setSubOpen] = useState(false);
+  const [subOff, setSubOff] = useState<string | null>(null);
+  const [flash, setFlash] = useState<{ playerId: string; tone: "positive" | "negative" | "neutral"; key: number } | null>(null);
 
   if (!match) return null;
 
-  const startingPlayers = match.startingXV
+  const startingPlayers = activeStartingXV
     .map((id) => MOCK_PLAYERS.find((p) => p.id === id))
     .filter((p): p is Player => Boolean(p));
-  const benchPlayers = match.bench
+  const benchPlayers = activeBench
     .map((id) => MOCK_PLAYERS.find((p) => p.id === id))
     .filter((p): p is Player => Boolean(p));
 
@@ -76,6 +83,52 @@ function LiveMatch() {
   };
 
   const isLive = match.status === "live";
+
+  // Flash the player card of the last recorded event briefly.
+  useEffect(() => {
+    if (!lastEvent || !lastEvent.playerId) return;
+    const tone = EVENT_MAP[lastEvent.type]?.tone ?? "neutral";
+    const key = Date.now();
+    setFlash({ playerId: lastEvent.playerId, tone, key });
+    const t = setTimeout(() => setFlash((f) => (f && f.key === key ? null : f)), 800);
+    return () => clearTimeout(t);
+  }, [lastEvent?.id]);
+
+  const recordWithFeedback = (
+    input: { playerId?: string; category: Parameters<typeof addEvent>[0]["category"]; type: Parameters<typeof addEvent>[0]["type"]; team?: "us" | "opp" },
+    label: string,
+  ) => {
+    addEvent(input);
+    toast.success(`✓ ${label} recorded`, {
+      duration: 5000,
+      action: { label: "Undo (5)", onClick: () => undoLast() },
+    });
+  };
+
+  const quickScore = (team: "us" | "opp", kind: "goal" | "point") => {
+    const label = `${team === "us" ? "" : "Opp "}${kind === "goal" ? "Goal" : "Point"}`;
+    recordWithFeedback({ category: "shooting", type: kind, team }, label);
+  };
+
+  const openSub = () => {
+    setSubOff(null);
+    setSubOpen(true);
+  };
+
+  const handleSubPick = (id: string) => {
+    if (!subOff) {
+      setSubOff(id);
+      return;
+    }
+    performSubstitution(subOff, id);
+    const off = MOCK_PLAYERS.find((p) => p.id === subOff);
+    const on = MOCK_PLAYERS.find((p) => p.id === id);
+    toast.success(
+      `Sub · #${on?.number} ${on?.name.split(" ")[0]} for #${off?.number} ${off?.name.split(" ")[0]}`,
+    );
+    setSubOpen(false);
+    setSubOff(null);
+  };
 
   return (
     <div className="mx-auto min-h-screen max-w-md bg-background text-foreground">
@@ -126,8 +179,16 @@ function LiveMatch() {
             </div>
           </div>
 
-          {/* Action row */}
+          {/* Quick Score panel */}
           <div className="mt-3 grid grid-cols-4 gap-1.5">
+            <QuickScoreButton label="+ Goal" onClick={() => quickScore("us", "goal")} tone="ours-strong" />
+            <QuickScoreButton label="+ Point" onClick={() => quickScore("us", "point")} tone="ours" />
+            <QuickScoreButton label="Opp Goal" onClick={() => quickScore("opp", "goal")} tone="them-strong" />
+            <QuickScoreButton label="Opp Point" onClick={() => quickScore("opp", "point")} tone="them" />
+          </div>
+
+          {/* Action row */}
+          <div className="mt-2 grid grid-cols-4 gap-1.5">
             <ActionButton onClick={() => navigate({ to: "/match/dashboard" })} icon={BarChart3} label="Stats" />
             <ActionButton
               onClick={() => {
@@ -137,19 +198,19 @@ function LiveMatch() {
               icon={Undo2}
               label="Undo"
             />
-            <ActionButton onClick={() => setSubOpen(true)} icon={Users} label="Sub" />
+            <ActionButton onClick={openSub} icon={Users} label="Sub" />
             <ActionButton onClick={handleFinish} icon={Flag} label="Finish" accent />
           </div>
         </div>
 
         {/* Possession segmented control */}
         <div className="px-4 pb-3">
-          <div className="grid grid-cols-3 gap-1 rounded-full bg-white/10 p-1">
+          <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-white/10 p-1">
             {(
               [
-                { id: "us" as const, label: "Ardboe", dot: "bg-accent" },
-                { id: "out" as const, label: "Out of Play", dot: "bg-white/60" },
-                { id: "opp" as const, label: "Opposition", dot: "bg-sky-400" },
+                { id: "us" as const, label: "OURS", dot: "🟠", activeCls: "bg-accent text-accent-foreground" },
+                { id: "out" as const, label: "DEAD", dot: "⚪", activeCls: "bg-white text-primary" },
+                { id: "opp" as const, label: "THEM", dot: "🔵", activeCls: "bg-sky-500 text-white" },
               ]
             ).map((opt) => {
               const active = possessionOwner === opt.id;
@@ -159,11 +220,11 @@ function LiveMatch() {
                   type="button"
                   onClick={() => setPossession(opt.id)}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-full py-2 text-[11px] font-bold uppercase tracking-wider transition",
-                    active ? "bg-white text-primary shadow-elegant" : "text-white/70",
+                    "flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black uppercase tracking-widest transition",
+                    active ? `${opt.activeCls} shadow-elegant` : "text-white/70",
                   )}
                 >
-                  <span className={cn("h-2 w-2 rounded-full", opt.dot)} />
+                  <span aria-hidden>{opt.dot}</span>
                   {opt.label}
                 </button>
               );
@@ -173,13 +234,13 @@ function LiveMatch() {
       </header>
 
       {/* Player groups */}
-      <main className="px-3 pb-24 pt-3 space-y-4">
+      <main className="px-3 pb-24 pt-3 space-y-3">
         {LINES.map((line) => {
           const players = startingPlayers.filter((p) => line.positions.includes(p.position));
           if (players.length === 0) return null;
           return (
             <section key={line.label}>
-              <div className="mb-1.5 flex items-center gap-2 px-1">
+              <div className="mb-1 flex items-center gap-2 px-1">
                 <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
                   {line.label}
                 </p>
@@ -187,7 +248,13 @@ function LiveMatch() {
               </div>
               <div className="grid grid-cols-3 gap-2">
                 {players.map((p) => (
-                  <PlayerCard key={p.id} player={p} onClick={() => handlePlayerTap(p)} />
+                  <PlayerCard
+                    key={p.id}
+                    player={p}
+                    onClick={() => handlePlayerTap(p)}
+                    count={involvement[p.id] ?? 0}
+                    flashTone={flash?.playerId === p.id ? flash.tone : null}
+                  />
                 ))}
               </div>
             </section>
@@ -196,7 +263,7 @@ function LiveMatch() {
 
         {benchPlayers.length > 0 && (
           <section>
-            <div className="mb-1.5 flex items-center gap-2 px-1">
+            <div className="mb-1 flex items-center gap-2 px-1">
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
                 Bench
               </p>
@@ -204,7 +271,14 @@ function LiveMatch() {
             </div>
             <div className="grid grid-cols-3 gap-2">
               {benchPlayers.map((p) => (
-                <PlayerCard key={p.id} player={p} onClick={() => handlePlayerTap(p)} bench />
+                <PlayerCard
+                  key={p.id}
+                  player={p}
+                  onClick={() => handlePlayerTap(p)}
+                  bench
+                  count={involvement[p.id] ?? 0}
+                  flashTone={flash?.playerId === p.id ? flash.tone : null}
+                />
               ))}
             </div>
           </section>
@@ -215,23 +289,82 @@ function LiveMatch() {
         player={selected}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        onRecord={(playerId, category, type) => addEvent({ playerId, category, type })}
+        onRecord={(playerId, category, type) => {
+          addEvent({ playerId, category, type });
+          const label = EVENT_MAP[type]?.label ?? type;
+          toast.success(`✓ ${label} recorded`, {
+            duration: 5000,
+            action: { label: "Undo (5)", onClick: () => undoLast() },
+          });
+        }}
       />
 
-      <Sheet open={subOpen} onOpenChange={setSubOpen}>
-        <SheetContent side="bottom" className="max-h-[70vh] rounded-t-3xl border-none p-0">
+      <Sheet open={subOpen} onOpenChange={(o) => { setSubOpen(o); if (!o) setSubOff(null); }}>
+        <SheetContent side="bottom" className="max-h-[80vh] rounded-t-3xl border-none p-0">
           <SheetHeader className="border-b border-border px-5 pb-4 pt-5">
-            <SheetTitle className="text-left text-lg font-semibold">Substitution</SheetTitle>
+            <SheetTitle className="text-left text-lg font-semibold">
+              {subOff ? "Player On" : "Player Off"}
+            </SheetTitle>
             <p className="text-left text-xs text-muted-foreground">
-              Substitutions can be logged in the next update.
+              {subOff
+                ? `Choose a bench player to come on for #${MOCK_PLAYERS.find((p) => p.id === subOff)?.number}.`
+                : "Choose the player coming off."}
             </p>
           </SheetHeader>
-          <div className="px-5 py-6 text-sm text-muted-foreground">
-            Tap a bench player, then choose who they replace. Coming soon.
+          <div className="overflow-y-auto px-4 pb-8 pt-3">
+            <div className="grid grid-cols-3 gap-2">
+              {(subOff ? benchPlayers : startingPlayers).map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleSubPick(p.id)}
+                  className="flex h-[74px] flex-col items-start justify-between rounded-2xl border border-border bg-card p-2.5 text-left shadow-elegant active:scale-[0.97]"
+                >
+                  <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+                    {p.number}
+                  </span>
+                  <span className="w-full truncate text-[12px] font-semibold leading-tight text-foreground">
+                    {p.name.split(" ")[0]}
+                    <span className="block truncate text-[10px] font-normal text-muted-foreground">
+                      {p.position}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+function QuickScoreButton({
+  onClick,
+  label,
+  tone,
+}: {
+  onClick: () => void;
+  label: string;
+  tone: "ours" | "ours-strong" | "them" | "them-strong";
+}) {
+  const cls = {
+    "ours-strong": "bg-accent text-accent-foreground",
+    ours: "bg-accent/85 text-accent-foreground",
+    "them-strong": "bg-sky-500 text-white",
+    them: "bg-sky-500/80 text-white",
+  }[tone];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex h-12 items-center justify-center rounded-xl text-xs font-black uppercase tracking-wider shadow-elegant transition active:scale-95",
+        cls,
+      )}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -251,7 +384,7 @@ function ActionButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex h-11 flex-col items-center justify-center gap-0.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition active:scale-95",
+        "flex h-10 flex-col items-center justify-center gap-0.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition active:scale-95",
         accent
           ? "bg-accent text-accent-foreground"
           : "bg-white/10 text-white hover:bg-white/20",
@@ -267,25 +400,43 @@ function PlayerCard({
   player,
   onClick,
   bench,
+  count,
+  flashTone,
 }: {
   player: Player;
   onClick: () => void;
   bench?: boolean;
+  count: number;
+  flashTone: "positive" | "negative" | "neutral" | null;
 }) {
+  const flashCls =
+    flashTone === "positive"
+      ? "ring-2 ring-success bg-success/10"
+      : flashTone === "negative"
+        ? "ring-2 ring-destructive bg-destructive/10"
+        : flashTone === "neutral"
+          ? "ring-2 ring-accent bg-accent/10"
+          : "";
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "flex h-[74px] flex-col items-start justify-between rounded-2xl border p-2.5 text-left shadow-elegant transition active:scale-[0.97]",
+        "relative flex h-[74px] flex-col items-start justify-between rounded-2xl border p-2.5 text-left shadow-elegant transition duration-200 active:scale-[0.97]",
         bench
           ? "border-dashed border-border bg-card"
           : "border-border bg-card hover:border-accent/50",
+        flashCls,
       )}
     >
       <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
         {player.number}
       </span>
+      {count > 0 && (
+        <span className="absolute right-2 top-2 min-w-[20px] rounded-full bg-secondary px-1.5 py-0.5 text-center text-[10px] font-bold tabular-nums text-secondary-foreground">
+          {count}
+        </span>
+      )}
       <span className="w-full truncate text-[12px] font-semibold leading-tight text-foreground">
         {player.name.split(" ")[0]}
         <span className="block truncate text-[10px] font-normal text-muted-foreground">
