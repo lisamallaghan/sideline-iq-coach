@@ -29,10 +29,10 @@ const CAT_ICON = {
 
 function Timeline() {
   const { match, possessionPeriods } = useMatch();
-  type Item =
-    | { kind: "event"; id: string; ts: number; data: (typeof match.events)[number] }
-    | { kind: "possession"; id: string; ts: number; owner: "us" | "opp" | "out"; minute: number };
   const events = match?.events ?? [];
+  type Item =
+    | { kind: "event"; id: string; ts: number; data: (typeof events)[number] }
+    | { kind: "possession"; id: string; ts: number; owner: "us" | "opp" | "out"; minute: number };
   const items: Item[] = [
     ...events.map((e) => ({ kind: "event" as const, id: e.id, ts: e.timestamp, data: e })),
     ...possessionPeriods.map((p) => ({
