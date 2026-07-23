@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Match, MatchEvent, MatchSetup } from "@/types";
+import type { PossessionOwner, PossessionPeriod } from "@/types";
 import { BENCH, STARTING_XV } from "@/data/players";
 import { EVENT_MAP } from "@/data/events";
 
@@ -26,6 +27,18 @@ interface MatchStore {
   ourScore: { goals: number; points: number };
   theirScore: { goals: number; points: number };
   toggleHalf: () => void;
+  possessionOwner: PossessionOwner;
+  possessionPeriods: PossessionPeriod[];
+  setPossession: (owner: PossessionOwner, reason?: string) => void;
+  possessionStats: {
+    usMs: number;
+    oppMs: number;
+    outMs: number;
+    inPlayMs: number;
+    totalMs: number;
+    usPct: number;
+    oppPct: number;
+  };
 }
 
 const MatchCtx = createContext<MatchStore | null>(null);
@@ -55,6 +68,9 @@ export function MatchProvider({ children }: { children: ReactNode }) {
   const [elapsedSec, setElapsedSec] = useState(0);
   const [half, setHalf] = useState<1 | 2>(1);
   const startRef = useRef<number | null>(null);
+  const [possessionPeriods, setPossessionPeriods] = useState<PossessionPeriod[]>([]);
+  const [possessionOwner, setPossessionOwner] = useState<PossessionOwner>("out");
+  const [nowTick, setNowTick] = useState(0);
 
   useEffect(() => {
     if (match?.status !== "live") return;
@@ -62,6 +78,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       if (startRef.current) {
         setElapsedSec(Math.floor((Date.now() - startRef.current) / 1000));
       }
+      setNowTick((t) => t + 1);
     }, 1000);
     return () => clearInterval(id);
   }, [match?.status]);
@@ -71,6 +88,8 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     setElapsedSec(0);
     setHalf(1);
     startRef.current = null;
+    setPossessionPeriods([]);
+    setPossessionOwner("out");
   }, []);
 
   const startMatch = useCallback(() => {
@@ -88,11 +107,40 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     setElapsedSec(0);
     setHalf(1);
     startRef.current = null;
+    setPossessionPeriods([]);
+    setPossessionOwner("out");
   }, []);
 
   const currentMinute =
     Math.min(match?.duration ?? 30, Math.floor(elapsedSec / 60)) +
     (half === 2 ? (match?.duration ?? 30) : 0);
+
+  const setPossession = useCallback(
+    (owner: PossessionOwner, reason?: string) => {
+      const now = Date.now();
+      setPossessionPeriods((prev) => {
+        if (prev.length && prev[prev.length - 1].owner === owner && !prev[prev.length - 1].endMs) {
+          return prev;
+        }
+        const closed = prev.map((p, i) =>
+          i === prev.length - 1 && !p.endMs
+            ? { ...p, endMs: now, endMinute: currentMinute, endReason: reason }
+            : p,
+        );
+        return [
+          ...closed,
+          {
+            id: newId(),
+            owner,
+            startMs: now,
+            startMinute: currentMinute,
+          },
+        ];
+      });
+      setPossessionOwner(owner);
+    },
+    [currentMinute],
+  );
 
   const addEvent: MatchStore["addEvent"] = useCallback(
     (input) => {
@@ -123,6 +171,26 @@ export function MatchProvider({ children }: { children: ReactNode }) {
   const ourScore = useMemo(() => tallyScore(match?.events ?? [], "us"), [match?.events]);
   const theirScore = useMemo(() => tallyScore(match?.events ?? [], "opp"), [match?.events]);
 
+  const possessionStats = useMemo(() => {
+    const now = Date.now();
+    void nowTick;
+    let usMs = 0;
+    let oppMs = 0;
+    let outMs = 0;
+    for (const p of possessionPeriods) {
+      const end = p.endMs ?? now;
+      const d = Math.max(0, end - p.startMs);
+      if (p.owner === "us") usMs += d;
+      else if (p.owner === "opp") oppMs += d;
+      else outMs += d;
+    }
+    const inPlayMs = usMs + oppMs;
+    const totalMs = inPlayMs + outMs;
+    const usPct = inPlayMs ? Math.round((usMs / inPlayMs) * 100) : 0;
+    const oppPct = inPlayMs ? 100 - usPct : 0;
+    return { usMs, oppMs, outMs, inPlayMs, totalMs, usPct, oppPct };
+  }, [possessionPeriods, nowTick]);
+
   const value: MatchStore = {
     match,
     createMatch,
@@ -137,6 +205,10 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     ourScore,
     theirScore,
     toggleHalf,
+    possessionOwner,
+    possessionPeriods,
+    setPossession,
+    possessionStats,
   };
 
   return <MatchCtx.Provider value={value}>{children}</MatchCtx.Provider>;
