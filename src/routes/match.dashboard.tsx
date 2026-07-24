@@ -4,6 +4,7 @@ import { StatCard } from "@/components/StatCard";
 import { InsightCard } from "@/components/InsightCard";
 import { useMatch } from "@/lib/match-store";
 import { EVENT_MAP } from "@/data/events";
+import { MOCK_PLAYERS } from "@/data/players";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 import { buildCoachFeed } from "@/lib/coach-feed";
@@ -19,7 +20,7 @@ export const Route = createFileRoute("/match/dashboard")({
 });
 
 function Dashboard() {
-  const { match, possessionStats, currentMinute } = useMatch();
+  const { match, possessionStats, currentMinute, ourScore } = useMatch();
   const events = match?.events ?? [];
 
   const shots = events.filter((e) => e.category === "shooting" && e.team === "us");
@@ -36,14 +37,43 @@ function Dashboard() {
   const { usPct, oppPct, inPlayMs, outMs, usMs, oppMs } = possessionStats;
   const feed = buildCoachFeed(events, { currentMinute, usPct, oppPct, koPct, conv });
 
+  // Highest scorer
+  const perPlayer = new Map<string, { goals: number; twoPointers: number; points: number; total: number }>();
+  for (const e of events) {
+    if (e.team !== "us" || !e.playerId) continue;
+    const s = EVENT_MAP[e.type]?.score;
+    if (!s) continue;
+    const cur = perPlayer.get(e.playerId) ?? { goals: 0, twoPointers: 0, points: 0, total: 0 };
+    if (s === 3) cur.goals += 1;
+    else if (s === 2) cur.twoPointers += 1;
+    else if (s === 1) cur.points += 1;
+    cur.total += s;
+    perPlayer.set(e.playerId, cur);
+  }
+  const topEntry = [...perPlayer.entries()].sort((a, b) => b[1].total - a[1].total)[0];
+  const topPlayer = topEntry ? MOCK_PLAYERS.find((p) => p.id === topEntry[0]) : null;
+
   return (
     <AppShell title="Dashboard" subtitle="Match Insights" back="/match/live" contentClassName="px-4 py-4 space-y-5">
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard label="Goals" value={ourScore.goals} />
+        <StatCard label="Two Pointers" value={ourScore.twoPointers} />
+        <StatCard label="Points" value={ourScore.points} />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <StatCard label="Possession" value={`${usPct}%`} hint={`Opp ${oppPct}%`} />
         <StatCard label="Kickout Success" value={`${koPct}%`} hint={`${ourKickouts}/${kickouts.length || 0} won`} />
         <StatCard label="Turnovers Won" value={turnoversWon} tone="positive" icon={<TrendingUp className="h-4 w-4 text-success" />} />
         <StatCard label="Turnovers Lost" value={turnoversLost} tone="negative" icon={<TrendingDown className="h-4 w-4 text-destructive" />} />
         <StatCard label="Shot Conversion" value={`${conv}%`} hint={`${scores.length}/${shots.length || 0} shots`} className="col-span-2" />
+        <StatCard
+          label="Highest Scorer"
+          value={topPlayer ? `#${topPlayer.number}` : "—"}
+          hint={topPlayer && topEntry
+            ? `${topPlayer.name.split(" ")[0]} · ${topEntry[1].goals}-${String(topEntry[1].twoPointers * 2 + topEntry[1].points).padStart(2, "0")}`
+            : "No scores yet"}
+          className="col-span-2"
+        />
       </div>
 
       <section>
