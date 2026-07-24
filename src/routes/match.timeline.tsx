@@ -5,8 +5,10 @@ import { useMatch } from "@/lib/match-store";
 import { EVENT_MAP } from "@/data/events";
 import { MOCK_PLAYERS } from "@/data/players";
 import { cn } from "@/lib/utils";
-import { Crosshair, Shield, Send, Target, AlertTriangle, XOctagon, Sparkles, ArrowRightLeft, Users } from "lucide-react";
+import { Crosshair, Shield, Send, Target, AlertTriangle, XOctagon, Sparkles, ArrowRightLeft, Users, Pencil, Trash2 } from "lucide-react";
 import { formatClock } from "@/lib/format";
+import { ScorerAttributionSheet } from "@/components/ScorerAttributionSheet";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/match/timeline")({
   head: () => ({
@@ -39,8 +41,10 @@ const FILTERS: Array<{ id: FilterId; label: string }> = [
 ];
 
 function Timeline() {
-  const { match, possessionPeriods, substitutions } = useMatch();
+  const { match, possessionPeriods, substitutions, updateEvent, deleteEvent } = useMatch();
   const [filter, setFilter] = useState<FilterId>("all");
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState("");
   const events = match?.events ?? [];
   type Item =
     | { kind: "event"; id: string; ts: number; data: (typeof events)[number] }
@@ -175,6 +179,7 @@ function Timeline() {
                 : def?.tone === "negative"
                   ? "bg-destructive/10 text-destructive border-destructive/25"
                   : "bg-accent/10 text-accent border-accent/25";
+            const isScore = e.team === "us" && (def?.score ?? 0) > 0;
             return (
               <li key={e.id} className="relative">
                 <span
@@ -194,19 +199,75 @@ function Timeline() {
                           ? "Opposition"
                           : player
                             ? `#${player.number} ${player.name}`
-                            : "Team"}
+                            : isScore
+                              ? "Unattributed"
+                              : "Team"}
                       </p>
                     </div>
                     <span className="rounded-full bg-secondary px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-secondary-foreground">
                       {e.minute}'
                     </span>
                   </div>
+                  {isScore ? (
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditLabel(def?.label ?? "");
+                          setEditId(e.id);
+                        }}
+                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-secondary px-2 text-[11px] font-bold uppercase tracking-wider text-secondary-foreground"
+                      >
+                        <Pencil className="h-3 w-3" /> {player ? "Change scorer" : "Assign scorer"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const snapshot = e;
+                          deleteEvent(e.id);
+                          toast("Event deleted", {
+                            duration: 5000,
+                            action: {
+                              label: "Undo",
+                              onClick: () => {
+                                // Re-add via updateEvent-like path is not possible; simplest is to inform.
+                                // Restore by pushing back through a fresh addEvent isn't available here without id.
+                                // Instead, we surface an informative toast — users can re-record.
+                                toast("Undo not available — re-record the score");
+                                void snapshot;
+                              },
+                            },
+                          });
+                        }}
+                        className="inline-flex h-8 items-center gap-1 rounded-lg border border-destructive/30 bg-destructive/5 px-2 text-[11px] font-bold uppercase tracking-wider text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3" /> Delete
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               </li>
             );
           })}
         </ol>
       )}
+
+      <ScorerAttributionSheet
+        open={editId !== null}
+        onOpenChange={(o) => { if (!o) setEditId(null); }}
+        title="Assign scorer"
+        scoreLabel={editLabel}
+        onAssign={(playerId) => {
+          if (editId) {
+            updateEvent(editId, { playerId });
+            const p = MOCK_PLAYERS.find((x) => x.id === playerId);
+            toast.success(`${editLabel} · #${p?.number} ${p?.name.split(" ")[0] ?? ""}`.trim());
+          }
+          setEditId(null);
+        }}
+        onSkip={() => setEditId(null)}
+        autoDismissMs={15000}
+      />
     </AppShell>
   );
 }
