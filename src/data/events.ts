@@ -47,6 +47,7 @@ export const EVENT_CATEGORIES: CategoryDef[] = [
     icon: "Crosshair",
     events: [
       { type: "goal", label: "Goal", category: "shooting", tone: "positive", score: 3 },
+      { type: "two_pointer", label: "Two Pointer", category: "shooting", tone: "positive", score: 2 },
       { type: "point", label: "Point", category: "shooting", tone: "positive", score: 1 },
       { type: "wide", label: "Wide", category: "shooting", tone: "negative" },
       { type: "dropped_short", label: "Dropped Short", category: "shooting", tone: "negative" },

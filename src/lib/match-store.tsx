@@ -21,6 +21,10 @@ interface MatchStore {
   clearMatch: () => void;
   addEvent: (input: { playerId?: string; category: MatchEvent["category"]; type: MatchEvent["type"]; team?: "us" | "opp" }) => void;
   undoLast: () => void;
+  lastAddedId: string | null;
+  updateEvent: (id: string, patch: Partial<Pick<MatchEvent, "playerId">>) => void;
+  deleteEvent: (id: string) => void;
+  pendingScoreEvents: MatchEvent[];
   lastEvent: MatchEvent | null;
   substitutions: Substitution[];
   performSubstitution: (offId: string, onId: string) => void;
@@ -30,8 +34,8 @@ interface MatchStore {
   elapsedSec: number;
   currentMinute: number;
   currentHalf: 1 | 2;
-  ourScore: { goals: number; points: number };
-  theirScore: { goals: number; points: number };
+  ourScore: TeamScore;
+  theirScore: TeamScore;
   toggleHalf: () => void;
   possessionOwner: PossessionOwner;
   possessionPeriods: PossessionPeriod[];
@@ -45,6 +49,12 @@ interface MatchStore {
     usPct: number;
     oppPct: number;
   };
+}
+
+export interface TeamScore {
+  goals: number;
+  twoPointers: number;
+  points: number;
 }
 
 const MatchCtx = createContext<MatchStore | null>(null);
@@ -78,6 +88,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
   const [possessionOwner, setPossessionOwner] = useState<PossessionOwner>("out");
   const [nowTick, setNowTick] = useState(0);
   const [substitutions, setSubstitutions] = useState<Substitution[]>([]);
+  const [lastAddedId, setLastAddedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (match?.status !== "live") return;
@@ -153,10 +164,11 @@ export function MatchProvider({ children }: { children: ReactNode }) {
 
   const addEvent: MatchStore["addEvent"] = useCallback(
     (input) => {
+      const id = newId();
       setMatch((m) => {
         if (!m) return m;
         const ev: MatchEvent = {
-          id: newId(),
+          id,
           playerId: input.playerId ?? "",
           category: input.category,
           type: input.type,
@@ -167,12 +179,23 @@ export function MatchProvider({ children }: { children: ReactNode }) {
         };
         return { ...m, events: [...m.events, ev] };
       });
+      setLastAddedId(id);
     },
     [currentMinute, half],
   );
 
   const undoLast = useCallback(() => {
     setMatch((m) => (m ? { ...m, events: m.events.slice(0, -1) } : m));
+  }, []);
+
+  const updateEvent = useCallback((id: string, patch: Partial<Pick<MatchEvent, "playerId">>) => {
+    setMatch((m) =>
+      m ? { ...m, events: m.events.map((e) => (e.id === id ? { ...e, ...patch } : e)) } : m,
+    );
+  }, []);
+
+  const deleteEvent = useCallback((id: string) => {
+    setMatch((m) => (m ? { ...m, events: m.events.filter((e) => e.id !== id) } : m));
   }, []);
 
   const performSubstitution = useCallback(
@@ -196,6 +219,14 @@ export function MatchProvider({ children }: { children: ReactNode }) {
 
   const ourScore = useMemo(() => tallyScore(match?.events ?? [], "us"), [match?.events]);
   const theirScore = useMemo(() => tallyScore(match?.events ?? [], "opp"), [match?.events]);
+
+  const pendingScoreEvents = useMemo(
+    () =>
+      (match?.events ?? []).filter(
+        (e) => e.team === "us" && !e.playerId && (EVENT_MAP[e.type]?.score ?? 0) > 0,
+      ),
+    [match?.events],
+  );
 
   const { activeStartingXV, activeBench } = useMemo(() => {
     const start = [...(match?.startingXV ?? [])];
@@ -250,6 +281,10 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     clearMatch,
     addEvent,
     undoLast,
+    lastAddedId,
+    updateEvent,
+    deleteEvent,
+    pendingScoreEvents,
     lastEvent,
     substitutions,
     performSubstitution,
@@ -271,16 +306,18 @@ export function MatchProvider({ children }: { children: ReactNode }) {
   return <MatchCtx.Provider value={value}>{children}</MatchCtx.Provider>;
 }
 
-function tallyScore(events: MatchEvent[], team: "us" | "opp") {
+function tallyScore(events: MatchEvent[], team: "us" | "opp"): TeamScore {
   let goals = 0;
+  let twoPointers = 0;
   let points = 0;
   for (const e of events) {
     if (e.team !== team) continue;
     const def = EVENT_MAP[e.type];
     if (def?.score === 3) goals += 1;
+    else if (def?.score === 2) twoPointers += 1;
     else if (def?.score === 1) points += 1;
   }
-  return { goals, points };
+  return { goals, twoPointers, points };
 }
 
 export function useMatch() {
@@ -289,10 +326,11 @@ export function useMatch() {
   return ctx;
 }
 
-export function formatScore(s: { goals: number; points: number }) {
-  return `${s.goals}-${String(s.points).padStart(2, "0")}`;
+export function formatScore(s: TeamScore) {
+  const total = s.twoPointers * 2 + s.points;
+  return `${s.goals}-${String(total).padStart(2, "0")}`;
 }
 
-export function scoreTotal(s: { goals: number; points: number }) {
-  return s.goals * 3 + s.points;
+export function scoreTotal(s: TeamScore) {
+  return s.goals * 3 + s.twoPointers * 2 + s.points;
 }
