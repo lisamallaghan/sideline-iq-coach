@@ -222,6 +222,19 @@ function LiveMatch() {
             </div>
           </div>
 
+          {pendingScoreEvents.length > 0 && (
+            <div className="mt-2 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setPendingOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-[11px] font-black uppercase tracking-widest text-accent-foreground shadow-elegant active:scale-95"
+              >
+                <span aria-hidden>🟠</span>
+                Pending ({pendingScoreEvents.length})
+              </button>
+            </div>
+          )}
+
           {/* Quick Score panel */}
           <div className="mt-3 grid grid-cols-3 gap-1.5">
             <QuickScoreButton label="+ Goal" onClick={() => quickScore("us", "goal")} tone="ours-strong" />
@@ -233,7 +246,7 @@ function LiveMatch() {
           </div>
 
           {/* Action row */}
-          <div className="mt-2 grid grid-cols-5 gap-1.5">
+          <div className="mt-2 grid grid-cols-4 gap-1.5">
             <ActionButton onClick={() => navigate({ to: "/match/dashboard" })} icon={BarChart3} label="Stats" />
             <ActionButton
               onClick={() => {
@@ -244,24 +257,18 @@ function LiveMatch() {
               label="Undo"
             />
             <ActionButton onClick={openSub} icon={Users} label="Sub" />
-            <ActionButton
-              onClick={() => setPendingOpen(true)}
-              icon={UserPlus}
-              label={`Pending${pendingScoreEvents.length ? ` (${pendingScoreEvents.length})` : ""}`}
-              badge={pendingScoreEvents.length || undefined}
-            />
             <ActionButton onClick={handleFinish} icon={Flag} label="Finish" accent />
           </div>
         </div>
 
         {/* Possession segmented control */}
         <div className="px-4 pb-3">
-          <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-white/10 p-1">
+          <div className="grid grid-cols-3 gap-1.5 rounded-2xl bg-black/20 p-1">
             {(
               [
-                { id: "us" as const, label: "OURS", dot: "🟠", activeCls: "bg-accent text-accent-foreground" },
-                { id: "out" as const, label: "DEAD", dot: "⚪", activeCls: "bg-white text-primary" },
-                { id: "opp" as const, label: "THEM", dot: "🔵", activeCls: "bg-sky-500 text-white" },
+                { id: "us" as const, label: "OURS", activeCls: "bg-accent text-accent-foreground ring-2 ring-accent" },
+                { id: "out" as const, label: "DEAD", activeCls: "bg-slate-200 text-primary ring-2 ring-slate-200" },
+                { id: "opp" as const, label: "THEM", activeCls: "bg-sky-500 text-white ring-2 ring-sky-400" },
               ]
             ).map((opt) => {
               const active = possessionOwner === opt.id;
@@ -271,11 +278,10 @@ function LiveMatch() {
                   type="button"
                   onClick={() => setPossession(opt.id)}
                   className={cn(
-                    "flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-black uppercase tracking-widest transition",
-                    active ? `${opt.activeCls} shadow-elegant` : "text-white/70",
+                    "flex items-center justify-center rounded-xl py-3 text-sm font-black uppercase tracking-widest transition",
+                    active ? `${opt.activeCls} shadow-elegant scale-[1.02]` : "bg-white/5 text-white/60",
                   )}
                 >
-                  <span aria-hidden>{opt.dot}</span>
                   {opt.label}
                 </button>
               );
