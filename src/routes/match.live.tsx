@@ -6,7 +6,7 @@ import { useMatch, formatScore } from "@/lib/match-store";
 import { MOCK_PLAYERS } from "@/data/players";
 import type { EventType, Player, Position } from "@/types";
 import { formatClock } from "@/lib/format";
-import { BarChart3, Flag, Pause, Play, Undo2, Users, Wind, UserPlus } from "lucide-react";
+import { BarChart3, Flag, Pause, Play, Undo2, Users, Wind } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { EVENT_MAP } from "@/data/events";
@@ -559,27 +559,30 @@ function PlayerCard({
       type="button"
       onClick={onClick}
       className={cn(
-        "relative flex h-[74px] flex-col items-start justify-between rounded-2xl border p-2.5 text-left shadow-elegant transition duration-200 active:scale-[0.97]",
+        "relative flex h-[88px] flex-col items-center justify-center rounded-2xl border p-2 text-center shadow-elegant transition duration-200 active:scale-[0.97]",
         bench
           ? "border-dashed border-border bg-card"
           : "border-border bg-card hover:border-accent/50",
         flashCls,
       )}
     >
-      <span className="grid h-8 w-8 place-items-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
+      <span className="font-black tabular-nums leading-none text-primary text-[34px]">
         {player.number}
       </span>
+      <span className="mt-1 w-full truncate text-[11px] font-semibold leading-tight text-muted-foreground">
+        {player.name.split(" ")[0]}
+      </span>
       {count > 0 && (
-        <span className="absolute right-2 top-2 min-w-[20px] rounded-full bg-secondary px-1.5 py-0.5 text-center text-[10px] font-bold tabular-nums text-secondary-foreground">
+        <span
+          key={count}
+          className={cn(
+            "absolute right-1.5 top-1.5 min-w-[20px] rounded-full bg-primary px-1.5 py-0.5 text-center text-[10px] font-black tabular-nums text-primary-foreground",
+            flashTone ? "animate-in zoom-in-50 duration-500" : "",
+          )}
+        >
           {count}
         </span>
       )}
-      <span className="w-full truncate text-[12px] font-semibold leading-tight text-foreground">
-        {player.name.split(" ")[0]}
-        <span className="block truncate text-[10px] font-normal text-muted-foreground">
-          {player.name.split(" ").slice(1).join(" ")}
-        </span>
-      </span>
     </button>
   );
 }
