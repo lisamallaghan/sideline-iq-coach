@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { PlayerEventSheet } from "@/components/PlayerEventSheet";
+import { ScorerAttributionSheet } from "@/components/ScorerAttributionSheet";
 import { useMatch, formatScore } from "@/lib/match-store";
 import { MOCK_PLAYERS } from "@/data/players";
-import type { Player, Position } from "@/types";
+import type { EventType, Player, Position } from "@/types";
 import { formatClock } from "@/lib/format";
-import { BarChart3, Flag, Pause, Play, Undo2, Users, Wind } from "lucide-react";
+import { BarChart3, Flag, Pause, Play, Undo2, Users, Wind, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { EVENT_MAP } from "@/data/events";
@@ -55,12 +56,20 @@ function LiveMatch() {
     involvement,
     performSubstitution,
     lastEvent,
+    lastAddedId,
+    updateEvent,
+    deleteEvent,
+    pendingScoreEvents,
   } = useMatch();
   const [selected, setSelected] = useState<Player | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [subOpen, setSubOpen] = useState(false);
   const [subOff, setSubOff] = useState<string | null>(null);
   const [flash, setFlash] = useState<{ playerId: string; tone: "positive" | "negative" | "neutral"; key: number } | null>(null);
+  const [attrOpen, setAttrOpen] = useState(false);
+  const [attrEventId, setAttrEventId] = useState<string | null>(null);
+  const [attrLabel, setAttrLabel] = useState<string>("");
+  const [pendingOpen, setPendingOpen] = useState(false);
 
   if (!match) return null;
 
@@ -105,10 +114,27 @@ function LiveMatch() {
     });
   };
 
-  const quickScore = (team: "us" | "opp", kind: "goal" | "point") => {
-    const label = `${team === "us" ? "" : "Opp "}${kind === "goal" ? "Goal" : "Point"}`;
-    recordWithFeedback({ category: "shooting", type: kind, team }, label);
+  const quickScore = (team: "us" | "opp", type: EventType) => {
+    const baseLabel = EVENT_MAP[type]?.label ?? type;
+    const label = team === "us" ? baseLabel : `Opp ${baseLabel}`;
+    addEvent({ category: "shooting", type, team });
+    toast.success(`✓ ${label} recorded`, {
+      duration: 5000,
+      action: { label: "Undo (5)", onClick: () => undoLast() },
+    });
+    if (team === "us") {
+      // Defer to next tick so lastAddedId is populated.
+      setTimeout(() => {
+        setAttrLabel(baseLabel);
+        setAttrOpen(true);
+      }, 0);
+    }
   };
+
+  // Track the id of the score awaiting attribution.
+  useEffect(() => {
+    if (attrOpen && lastAddedId) setAttrEventId(lastAddedId);
+  }, [attrOpen, lastAddedId]);
 
   const openSub = () => {
     setSubOff(null);
@@ -128,6 +154,23 @@ function LiveMatch() {
     );
     setSubOpen(false);
     setSubOff(null);
+  };
+
+  const startingPlayerList = startingPlayers;
+
+  const assignScorerNow = (playerId: string) => {
+    if (attrEventId) {
+      updateEvent(attrEventId, { playerId });
+      const p = MOCK_PLAYERS.find((x) => x.id === playerId);
+      toast.success(`${attrLabel} · #${p?.number} ${p?.name.split(" ")[0] ?? ""}`.trim());
+    }
+    setAttrOpen(false);
+    setAttrEventId(null);
+  };
+
+  const skipAttribution = () => {
+    setAttrOpen(false);
+    setAttrEventId(null);
   };
 
   return (
@@ -180,15 +223,17 @@ function LiveMatch() {
           </div>
 
           {/* Quick Score panel */}
-          <div className="mt-3 grid grid-cols-4 gap-1.5">
+          <div className="mt-3 grid grid-cols-3 gap-1.5">
             <QuickScoreButton label="+ Goal" onClick={() => quickScore("us", "goal")} tone="ours-strong" />
+            <QuickScoreButton label="+ 2 Pt" onClick={() => quickScore("us", "two_pointer")} tone="ours" />
             <QuickScoreButton label="+ Point" onClick={() => quickScore("us", "point")} tone="ours" />
             <QuickScoreButton label="Opp Goal" onClick={() => quickScore("opp", "goal")} tone="them-strong" />
+            <QuickScoreButton label="Opp 2 Pt" onClick={() => quickScore("opp", "two_pointer")} tone="them" />
             <QuickScoreButton label="Opp Point" onClick={() => quickScore("opp", "point")} tone="them" />
           </div>
 
           {/* Action row */}
-          <div className="mt-2 grid grid-cols-4 gap-1.5">
+          <div className="mt-2 grid grid-cols-5 gap-1.5">
             <ActionButton onClick={() => navigate({ to: "/match/dashboard" })} icon={BarChart3} label="Stats" />
             <ActionButton
               onClick={() => {
@@ -199,6 +244,12 @@ function LiveMatch() {
               label="Undo"
             />
             <ActionButton onClick={openSub} icon={Users} label="Sub" />
+            <ActionButton
+              onClick={() => setPendingOpen(true)}
+              icon={UserPlus}
+              label={`Pending${pendingScoreEvents.length ? ` (${pendingScoreEvents.length})` : ""}`}
+              badge={pendingScoreEvents.length || undefined}
+            />
             <ActionButton onClick={handleFinish} icon={Flag} label="Finish" accent />
           </div>
         </div>
@@ -299,6 +350,79 @@ function LiveMatch() {
         }}
       />
 
+      <ScorerAttributionSheet
+        open={attrOpen}
+        onOpenChange={(o) => { if (!o) skipAttribution(); }}
+        scoreLabel={attrLabel}
+        players={startingPlayerList}
+        onAssign={assignScorerNow}
+        onSkip={skipAttribution}
+      />
+
+      <Sheet open={pendingOpen} onOpenChange={setPendingOpen}>
+        <SheetContent side="bottom" className="max-h-[80vh] rounded-t-3xl border-none p-0">
+          <SheetHeader className="border-b border-border px-5 pb-4 pt-5">
+            <SheetTitle className="text-left text-lg font-semibold">
+              Pending attributions
+            </SheetTitle>
+            <p className="text-left text-xs text-muted-foreground">
+              {pendingScoreEvents.length === 0
+                ? "All scores have been attributed."
+                : "Assign a scorer to each unattributed score."}
+            </p>
+          </SheetHeader>
+          <div className="max-h-[70vh] overflow-y-auto px-4 pb-8 pt-3">
+            {pendingScoreEvents.length === 0 ? (
+              <p className="rounded-2xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
+                Nothing pending.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {pendingScoreEvents.map((e) => (
+                  <li
+                    key={e.id}
+                    className="rounded-2xl border border-border bg-card p-3 shadow-elegant"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {EVENT_MAP[e.type]?.label ?? e.type}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{e.minute}'</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAttrEventId(e.id);
+                            setAttrLabel(EVENT_MAP[e.type]?.label ?? "");
+                            setPendingOpen(false);
+                            setAttrOpen(true);
+                          }}
+                          className="h-9 rounded-xl bg-primary px-3 text-xs font-bold uppercase tracking-wider text-primary-foreground"
+                        >
+                          Assign player
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            deleteEvent(e.id);
+                            toast("Score removed");
+                          }}
+                          className="h-9 rounded-xl border border-border bg-secondary px-3 text-xs font-bold uppercase tracking-wider text-secondary-foreground"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
       <Sheet open={subOpen} onOpenChange={(o) => { setSubOpen(o); if (!o) setSubOff(null); }}>
         <SheetContent side="bottom" className="max-h-[80vh] rounded-t-3xl border-none p-0">
           <SheetHeader className="border-b border-border px-5 pb-4 pt-5">
@@ -373,23 +497,30 @@ function ActionButton({
   icon: Icon,
   label,
   accent,
+  badge,
 }: {
   onClick: () => void;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   accent?: boolean;
+  badge?: number;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "flex h-10 flex-col items-center justify-center gap-0.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition active:scale-95",
+        "relative flex h-10 flex-col items-center justify-center gap-0.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition active:scale-95",
         accent
           ? "bg-accent text-accent-foreground"
           : "bg-white/10 text-white hover:bg-white/20",
       )}
     >
+      {badge ? (
+        <span className="absolute -right-1 -top-1 grid h-4 min-w-[16px] place-items-center rounded-full bg-accent px-1 text-[9px] font-black text-accent-foreground">
+          {badge}
+        </span>
+      ) : null}
       <Icon className="h-4 w-4" />
       {label}
     </button>
