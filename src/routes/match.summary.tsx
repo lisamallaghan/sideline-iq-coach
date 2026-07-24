@@ -28,11 +28,15 @@ function Summary() {
     const own = events.filter((e) => e.playerId === p.id);
     const scoreEvents = own.filter((e) => EVENT_MAP[e.type]?.score);
     const goals = scoreEvents.filter((e) => EVENT_MAP[e.type]?.score === 3).length;
+    const twoPointers = scoreEvents.filter((e) => EVENT_MAP[e.type]?.score === 2).length;
     const points = scoreEvents.filter((e) => EVENT_MAP[e.type]?.score === 1).length;
-    return { player: p, total: own.length, goals, points };
+    const totalScore = goals * 3 + twoPointers * 2 + points;
+    return { player: p, total: own.length, goals, twoPointers, points, totalScore };
   })
     .filter((s) => s.total > 0)
-    .sort((a, b) => b.total - a.total);
+    .sort((a, b) => b.totalScore - a.totalScore || b.total - a.total);
+
+  const topScorer = playerStats.find((s) => s.totalScore > 0);
 
   return (
     <AppShell title="Match Summary" subtitle="Full Time" back="/" contentClassName="px-4 py-4 space-y-6">
@@ -65,7 +69,22 @@ function Summary() {
         <h2 className="mb-2 text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           Team statistics
         </h2>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard label="Goals" value={ourScore.goals} />
+          <StatCard label="Two Pointers" value={ourScore.twoPointers} />
+          <StatCard label="Points" value={ourScore.points} />
+        </div>
+        <div className="mt-3 rounded-2xl border border-border bg-card p-4 shadow-elegant">
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Total</p>
+          <p className="mt-1 text-3xl font-black tabular-nums text-foreground">{formatScore(ourScore)}</p>
+          {topScorer ? (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Highest scorer: <span className="font-semibold text-foreground">{topScorer.player.name.split(" ")[0]}</span>
+              {" "}({topScorer.goals}-{String(topScorer.twoPointers * 2 + topScorer.points).padStart(2, "0")})
+            </p>
+          ) : null}
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
           <StatCard label="Total events" value={events.length} />
           <StatCard
             label="Shots"
@@ -94,7 +113,7 @@ function Summary() {
           </p>
         ) : (
           <ul className="space-y-2">
-            {playerStats.map(({ player, total, goals, points }) => (
+            {playerStats.map(({ player, total, goals, twoPointers, points, totalScore }) => (
               <li
                 key={player.id}
                 className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-elegant"
@@ -108,9 +127,9 @@ function Summary() {
                     {player.position} · {total} events
                   </p>
                 </div>
-                {goals + points > 0 ? (
+                {totalScore > 0 ? (
                   <span className="rounded-full bg-accent/12 px-2 py-1 text-xs font-bold text-accent">
-                    {goals}-{String(points).padStart(2, "0")}
+                    {goals}-{String(twoPointers * 2 + points).padStart(2, "0")}
                   </span>
                 ) : null}
               </li>
