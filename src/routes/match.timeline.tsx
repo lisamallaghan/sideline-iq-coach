@@ -75,7 +75,7 @@ function Timeline() {
     if (filter === "substitutions") return it.kind === "substitution";
     if (it.kind !== "event") return false;
     const t = it.data.type;
-    if (filter === "scores") return t === "goal" || t === "point";
+    if (filter === "scores") return t === "goal" || t === "two_pointer" || t === "point";
     if (filter === "turnovers")
       return (
         t === "turnover_won" ||
