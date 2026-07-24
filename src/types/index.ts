@@ -38,6 +38,7 @@ export type EventType =
   // shooting
   | "goal"
   | "point"
+  | "two_pointer"
   | "wide"
   | "dropped_short"
   | "saved"
