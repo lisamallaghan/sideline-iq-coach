@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { MOCK_PLAYERS } from "@/data/players";
 import type { Player } from "@/types";
@@ -26,19 +26,13 @@ export function ScorerAttributionSheet({
   autoDismissMs = 6000,
 }: Props) {
   const [num, setNum] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
   const list = useMemo(
     () => players ?? MOCK_PLAYERS,
     [players],
   );
 
   useEffect(() => {
-    if (!open) {
-      setNum("");
-      return;
-    }
-    const t = setTimeout(() => inputRef.current?.focus(), 80);
-    return () => clearTimeout(t);
+    if (!open) setNum("");
   }, [open]);
 
   useEffect(() => {
@@ -79,35 +73,21 @@ export function ScorerAttributionSheet({
         <div className="flex flex-col gap-3 px-4 pb-6 pt-3">
           <div className="flex items-center gap-2">
             <input
-              ref={inputRef}
               inputMode="numeric"
               pattern="[0-9]*"
+              autoFocus={false}
               value={num}
               onChange={(e) => setNum(e.target.value.replace(/\D/g, "").slice(0, 2))}
               placeholder="#"
               className="h-14 w-24 rounded-2xl border border-border bg-card text-center font-mono text-3xl font-bold tabular-nums text-foreground shadow-elegant focus:border-accent focus:outline-none"
             />
-            <div className="flex flex-1 gap-2">
-              <button
-                type="button"
-                onClick={onSkip}
-                className="h-14 flex-1 rounded-2xl border border-border bg-secondary text-sm font-bold uppercase tracking-wider text-secondary-foreground active:scale-[0.98]"
-              >
-                Skip for now
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const n = Number(num);
-                  const match = list.find((p) => p.number === n);
-                  if (match) onAssign(match.id);
-                  else onSkip();
-                }}
-                className="h-14 flex-1 rounded-2xl bg-primary text-sm font-bold uppercase tracking-wider text-primary-foreground active:scale-[0.98]"
-              >
-                Done
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={onSkip}
+              className="h-14 flex-1 rounded-2xl border border-border bg-secondary text-sm font-bold uppercase tracking-wider text-secondary-foreground active:scale-[0.98]"
+            >
+              Skip for now
+            </button>
           </div>
           <div className="max-h-[45vh] overflow-y-auto">
             <ul className="grid grid-cols-3 gap-2">
