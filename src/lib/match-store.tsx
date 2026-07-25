@@ -19,18 +19,21 @@ interface MatchStore {
   startMatch: () => void;
   finishMatch: () => void;
   clearMatch: () => void;
-  addEvent: (input: { playerId?: string; category: MatchEvent["category"]; type: MatchEvent["type"]; team?: "us" | "opp" }) => void;
+  addEvent: (input: { playerId?: string; category: MatchEvent["category"]; type: MatchEvent["type"]; team?: "us" | "opp"; note?: string }) => void;
   undoLast: () => void;
   lastAddedId: string | null;
-  updateEvent: (id: string, patch: Partial<Pick<MatchEvent, "playerId">>) => void;
+  updateEvent: (id: string, patch: Partial<Pick<MatchEvent, "playerId" | "type" | "category">>) => void;
   deleteEvent: (id: string) => void;
   pendingScoreEvents: MatchEvent[];
+  pendingEvents: MatchEvent[];
   lastEvent: MatchEvent | null;
   substitutions: Substitution[];
   performSubstitution: (offId: string, onId: string) => void;
   activeStartingXV: string[];
   activeBench: string[];
   involvement: Record<string, number>;
+  recentPlayerIds: string[];
+  setRecordingMode: (m: "coach" | "lineup") => void;
   elapsedSec: number;
   currentMinute: number;
   currentHalf: 1 | 2;
@@ -68,7 +71,18 @@ const DEFAULT_SETUP: MatchSetup = {
   duration: 30,
   startingXV: STARTING_XV,
   bench: BENCH,
+  recordingMode: "coach",
 };
+
+const MODE_STORAGE_KEY = "sideline-iq.recording-mode";
+function readSavedMode(): "coach" | "lineup" {
+  if (typeof window === "undefined") return "coach";
+  const v = window.localStorage.getItem(MODE_STORAGE_KEY);
+  return v === "lineup" ? "lineup" : "coach";
+}
+function saveMode(m: "coach" | "lineup") {
+  if (typeof window !== "undefined") window.localStorage.setItem(MODE_STORAGE_KEY, m);
+}
 
 function newId() {
   return Math.random().toString(36).slice(2, 10);
@@ -77,6 +91,7 @@ function newId() {
 export function MatchProvider({ children }: { children: ReactNode }) {
   const [match, setMatch] = useState<Match | null>(() => ({
     ...DEFAULT_SETUP,
+    recordingMode: readSavedMode(),
     id: newId(),
     events: [],
     status: "setup",
@@ -102,6 +117,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
   }, [match?.status]);
 
   const createMatch = useCallback((setup: MatchSetup) => {
+    if (setup.recordingMode) saveMode(setup.recordingMode);
     setMatch({ ...setup, id: newId(), events: [], status: "setup" });
     setElapsedSec(0);
     setHalf(1);
@@ -122,13 +138,18 @@ export function MatchProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearMatch = useCallback(() => {
-    setMatch({ ...DEFAULT_SETUP, id: newId(), events: [], status: "setup" });
+    setMatch({ ...DEFAULT_SETUP, recordingMode: readSavedMode(), id: newId(), events: [], status: "setup" });
     setElapsedSec(0);
     setHalf(1);
     startRef.current = null;
     setPossessionPeriods([]);
     setPossessionOwner("out");
     setSubstitutions([]);
+  }, []);
+
+  const setRecordingMode = useCallback((m: "coach" | "lineup") => {
+    saveMode(m);
+    setMatch((prev) => (prev ? { ...prev, recordingMode: m } : prev));
   }, []);
 
   const currentMinute =
@@ -176,6 +197,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
           half,
           timestamp: Date.now(),
           team: input.team ?? "us",
+          note: input.note,
         };
         return { ...m, events: [...m.events, ev] };
       });
@@ -188,7 +210,7 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     setMatch((m) => (m ? { ...m, events: m.events.slice(0, -1) } : m));
   }, []);
 
-  const updateEvent = useCallback((id: string, patch: Partial<Pick<MatchEvent, "playerId">>) => {
+  const updateEvent = useCallback((id: string, patch: Partial<Pick<MatchEvent, "playerId" | "type" | "category">>) => {
     setMatch((m) =>
       m ? { ...m, events: m.events.map((e) => (e.id === id ? { ...e, ...patch } : e)) } : m,
     );
@@ -227,6 +249,27 @@ export function MatchProvider({ children }: { children: ReactNode }) {
       ),
     [match?.events],
   );
+
+  const pendingEvents = useMemo(
+    () =>
+      (match?.events ?? []).filter(
+        (e) => e.team === "us" && !e.playerId && EVENT_MAP[e.type]?.attributable,
+      ),
+    [match?.events],
+  );
+
+  const recentPlayerIds = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    const evs = match?.events ?? [];
+    for (let i = evs.length - 1; i >= 0 && out.length < 6; i--) {
+      const pid = evs[i].playerId;
+      if (!pid || seen.has(pid)) continue;
+      seen.add(pid);
+      out.push(pid);
+    }
+    return out;
+  }, [match?.events]);
 
   const { activeStartingXV, activeBench } = useMemo(() => {
     const start = [...(match?.startingXV ?? [])];
@@ -285,12 +328,15 @@ export function MatchProvider({ children }: { children: ReactNode }) {
     updateEvent,
     deleteEvent,
     pendingScoreEvents,
+    pendingEvents,
     lastEvent,
     substitutions,
     performSubstitution,
     activeStartingXV,
     activeBench,
     involvement,
+    recentPlayerIds,
+    setRecordingMode,
     elapsedSec,
     currentMinute,
     currentHalf: half,

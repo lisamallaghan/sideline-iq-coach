@@ -30,6 +30,8 @@ export type EventType =
   | "kickout_won_clean"
   | "kickout_won_break"
   | "opp_kickout_won"
+  | "kickout_lost"
+  | "opp_kickout_stolen"
   | "turnover_won"
   | "turnover_lost"
   // passing
@@ -57,6 +59,8 @@ export type EventType =
   | "overcarried"
   | "poor_decision"
   | "solo_into_traffic"
+  | "injury"
+  | "coach_note"
   // positive
   | "assist"
   | "won_free";
@@ -70,6 +74,7 @@ export interface MatchEvent {
   half: 1 | 2;
   timestamp: number;
   team: "us" | "opp";
+  note?: string;
 }
 
 export interface MatchSetup {
@@ -81,6 +86,7 @@ export interface MatchSetup {
   duration: number; // minutes per half
   startingXV: string[]; // player ids
   bench: string[];
+  recordingMode?: "coach" | "lineup";
 }
 
 export interface Match extends MatchSetup {

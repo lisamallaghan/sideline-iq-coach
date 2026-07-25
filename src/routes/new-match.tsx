@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ChevronRight, MapPin, Trophy, Users2 } from "lucide-react";
+import { ChevronRight, MapPin, Trophy, Users2, Zap, ListChecks } from "lucide-react";
 
 export const Route = createFileRoute("/new-match")({
   head: () => ({
@@ -31,6 +31,9 @@ function NewMatch() {
   const [duration, setDuration] = useState<number>(match?.duration ?? 30);
   const [starting, setStarting] = useState<string[]>(match?.startingXV ?? STARTING_XV);
   const [bench, setBench] = useState<string[]>(match?.bench ?? BENCH);
+  const [recordingMode, setRecordingModeLocal] = useState<"coach" | "lineup">(
+    match?.recordingMode ?? "coach",
+  );
 
   const togglePlayer = (id: string) => {
     if (starting.includes(id)) {
@@ -54,6 +57,7 @@ function NewMatch() {
       duration,
       startingXV: starting.slice(0, 15),
       bench,
+      recordingMode,
     });
     startMatch();
     navigate({ to: "/match/live" });
@@ -132,6 +136,53 @@ function NewMatch() {
                 ))}
               </div>
             </div>
+          </div>
+        </section>
+
+        <section>
+          <Label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Recording mode
+          </Label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setRecordingModeLocal("coach")}
+              className={cn(
+                "flex flex-col items-start gap-1 rounded-2xl border p-3 text-left shadow-elegant transition",
+                recordingMode === "coach"
+                  ? "border-accent bg-accent/10"
+                  : "border-border bg-card",
+              )}
+            >
+              <div className="flex w-full items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-foreground">
+                  <Zap className="h-4 w-4 text-accent" /> Coach Mode
+                </span>
+                <span className="rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-accent-foreground">
+                  Recommended
+                </span>
+              </div>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Event-first. Record what happened in one tap; attribute a player after.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRecordingModeLocal("lineup")}
+              className={cn(
+                "flex flex-col items-start gap-1 rounded-2xl border p-3 text-left shadow-elegant transition",
+                recordingMode === "lineup"
+                  ? "border-accent bg-accent/10"
+                  : "border-border bg-card",
+              )}
+            >
+              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-foreground">
+                <ListChecks className="h-4 w-4" /> Line-up Mode
+              </span>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                Player-first. Pick the player, then the event — the current workflow.
+              </p>
+            </button>
           </div>
         </section>
 

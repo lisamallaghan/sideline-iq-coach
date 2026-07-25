@@ -6,10 +6,11 @@ import { useMatch, formatScore } from "@/lib/match-store";
 import { MOCK_PLAYERS } from "@/data/players";
 import type { EventType, Player, Position } from "@/types";
 import { formatClock } from "@/lib/format";
-import { BarChart3, Flag, Pause, Play, Undo2, Users, Wind } from "lucide-react";
+import { BarChart3, Flag, Pause, Play, Undo2, Users, Wind, Layers, ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { EVENT_MAP } from "@/data/events";
+import { EventCentre } from "@/components/EventCentre";
 import {
   Sheet,
   SheetContent,
@@ -59,7 +60,9 @@ function LiveMatch() {
     lastAddedId,
     updateEvent,
     deleteEvent,
-    pendingScoreEvents,
+    pendingEvents,
+    recentPlayerIds,
+    setRecordingMode,
   } = useMatch();
   const [selected, setSelected] = useState<Player | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -70,13 +73,20 @@ function LiveMatch() {
   const [attrEventId, setAttrEventId] = useState<string | null>(null);
   const [attrLabel, setAttrLabel] = useState<string>("");
   const [pendingOpen, setPendingOpen] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [confirmChip, setConfirmChip] = useState<{ label: string; tone: "positive" | "negative" | "neutral"; key: number } | null>(null);
 
   if (!match) return null;
+  const mode: "coach" | "lineup" = match.recordingMode ?? "coach";
 
   const startingPlayers = activeStartingXV
     .map((id) => MOCK_PLAYERS.find((p) => p.id === id))
     .filter((p): p is Player => Boolean(p));
   const benchPlayers = activeBench
+    .map((id) => MOCK_PLAYERS.find((p) => p.id === id))
+    .filter((p): p is Player => Boolean(p));
+  const recentPlayers = recentPlayerIds
     .map((id) => MOCK_PLAYERS.find((p) => p.id === id))
     .filter((p): p is Player => Boolean(p));
 
@@ -103,29 +113,27 @@ function LiveMatch() {
     return () => clearTimeout(t);
   }, [lastEvent?.id]);
 
-  const recordWithFeedback = (
-    input: { playerId?: string; category: Parameters<typeof addEvent>[0]["category"]; type: Parameters<typeof addEvent>[0]["type"]; team?: "us" | "opp" },
-    label: string,
-  ) => {
-    addEvent(input);
-    toast.success(`✓ ${label} recorded`, {
+  // Universal event trigger for Coach Mode.
+  // Records instantly, then opens attribution sheet only if the event is
+  // attributable AND belongs to our team.
+  const fireEvent = (type: EventType, team: "us" | "opp", label: string) => {
+    const def = EVENT_MAP[type];
+    const category = def?.category ?? "possession";
+    addEvent({ category, type, team });
+    const displayLabel = team === "opp" && !label.toLowerCase().startsWith("opp") ? `Opp ${label}` : label;
+    toast.success(`✓ ${displayLabel} recorded`, {
       duration: 5000,
       action: { label: "Undo (5)", onClick: () => undoLast() },
     });
-  };
-
-  const quickScore = (team: "us" | "opp", type: EventType) => {
-    const baseLabel = EVENT_MAP[type]?.label ?? type;
-    const label = team === "us" ? baseLabel : `Opp ${baseLabel}`;
-    addEvent({ category: "shooting", type, team });
-    toast.success(`✓ ${label} recorded`, {
-      duration: 5000,
-      action: { label: "Undo (5)", onClick: () => undoLast() },
-    });
-    if (team === "us") {
-      // Defer to next tick so lastAddedId is populated.
+    // Confirmation chip
+    const key = Date.now();
+    const tone = def?.tone ?? "neutral";
+    setConfirmChip({ label: displayLabel, tone, key });
+    setTimeout(() => setConfirmChip((c) => (c && c.key === key ? null : c)), 900);
+    // Open attribution only for our attributable events
+    if (team === "us" && def?.attributable) {
       setTimeout(() => {
-        setAttrLabel(baseLabel);
+        setAttrLabel(label);
         setAttrOpen(true);
       }, 0);
     }
@@ -158,7 +166,7 @@ function LiveMatch() {
 
   const startingPlayerList = startingPlayers;
 
-  const assignScorerNow = (playerId: string) => {
+  const assignNow = (playerId: string) => {
     if (attrEventId) {
       updateEvent(attrEventId, { playerId });
       const p = MOCK_PLAYERS.find((x) => x.id === playerId);
@@ -171,6 +179,17 @@ function LiveMatch() {
   const skipAttribution = () => {
     setAttrOpen(false);
     setAttrEventId(null);
+  };
+
+  const submitCoachNote = () => {
+    const text = noteText.trim();
+    addEvent({ category: "errors", type: "coach_note", team: "us", note: text || undefined });
+    toast.success("✓ Note saved", {
+      duration: 5000,
+      action: { label: "Undo (5)", onClick: () => undoLast() },
+    });
+    setNoteText("");
+    setNoteOpen(false);
   };
 
   return (
@@ -190,12 +209,23 @@ function LiveMatch() {
               <Wind className="h-3.5 w-3.5" />
               <span>Wind —</span>
             </div>
-            <span className={cn(
-              "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest",
-              isLive ? "bg-accent text-accent-foreground" : "bg-white/15 text-white/80",
-            )}>
-              {isLive ? "Live" : match.status}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setRecordingMode(mode === "coach" ? "lineup" : "coach")}
+                className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-white/80"
+                title="Switch recording mode"
+              >
+                <Layers className="h-3 w-3" />
+                {mode === "coach" ? "Coach" : "Line-up"}
+              </button>
+              <span className={cn(
+                "rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-widest",
+                isLive ? "bg-accent text-accent-foreground" : "bg-white/15 text-white/80",
+              )}>
+                {isLive ? "Live" : match.status}
+              </span>
+            </div>
           </div>
 
           <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
@@ -222,31 +252,21 @@ function LiveMatch() {
             </div>
           </div>
 
-          {pendingScoreEvents.length > 0 && (
+          {pendingEvents.length > 0 && (
             <div className="mt-2 flex justify-center">
               <button
                 type="button"
                 onClick={() => setPendingOpen(true)}
                 className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3 py-1 text-[11px] font-black uppercase tracking-widest text-accent-foreground shadow-elegant active:scale-95"
               >
-                <span aria-hidden>🟠</span>
-                Pending ({pendingScoreEvents.length})
+                <ClipboardList className="h-3.5 w-3.5" />
+                Pending ({pendingEvents.length})
               </button>
             </div>
           )}
 
-          {/* Quick Score panel */}
-          <div className="mt-3 grid grid-cols-3 gap-1.5">
-            <QuickScoreButton label="+ Goal" onClick={() => quickScore("us", "goal")} tone="ours-strong" />
-            <QuickScoreButton label="+ 2 Pt" onClick={() => quickScore("us", "two_pointer")} tone="ours" />
-            <QuickScoreButton label="+ Point" onClick={() => quickScore("us", "point")} tone="ours" />
-            <QuickScoreButton label="Opp Goal" onClick={() => quickScore("opp", "goal")} tone="them-strong" />
-            <QuickScoreButton label="Opp 2 Pt" onClick={() => quickScore("opp", "two_pointer")} tone="them" />
-            <QuickScoreButton label="Opp Point" onClick={() => quickScore("opp", "point")} tone="them" />
-          </div>
-
           {/* Action row */}
-          <div className="mt-2 grid grid-cols-4 gap-1.5">
+          <div className="mt-3 grid grid-cols-4 gap-1.5">
             <ActionButton onClick={() => navigate({ to: "/match/dashboard" })} icon={BarChart3} label="Stats" />
             <ActionButton
               onClick={() => {
@@ -290,7 +310,30 @@ function LiveMatch() {
         </div>
       </header>
 
-      {/* Player groups */}
+      {/* Body — Coach Mode or Line-up Mode */}
+      {confirmChip && (
+        <div
+          key={confirmChip.key}
+          className={cn(
+            "pointer-events-none fixed left-1/2 top-[62%] z-40 -translate-x-1/2 rounded-full px-4 py-2 text-sm font-black uppercase tracking-wider shadow-glow-accent",
+            confirmChip.tone === "positive"
+              ? "bg-success text-white"
+              : confirmChip.tone === "negative"
+                ? "bg-destructive text-white"
+                : "bg-primary text-primary-foreground",
+          )}
+        >
+          ✓ {confirmChip.label}
+        </div>
+      )}
+
+      {mode === "coach" ? (
+        <EventCentre
+          onFire={fireEvent}
+          onSubstitution={openSub}
+          onCoachNote={() => setNoteOpen(true)}
+        />
+      ) : (
       <main className="px-3 pb-24 pt-3 space-y-3">
         {LINES.map((line) => {
           const players = startingPlayers.filter((p) => line.positions.includes(p.position));
@@ -341,6 +384,7 @@ function LiveMatch() {
           </section>
         )}
       </main>
+      )}
 
       <PlayerEventSheet
         player={selected}
@@ -359,9 +403,11 @@ function LiveMatch() {
       <ScorerAttributionSheet
         open={attrOpen}
         onOpenChange={(o) => { if (!o) skipAttribution(); }}
+        title="Who was involved?"
         scoreLabel={attrLabel}
         players={startingPlayerList}
-        onAssign={assignScorerNow}
+        recentPlayers={recentPlayers}
+        onAssign={assignNow}
         onSkip={skipAttribution}
       />
 
@@ -372,19 +418,19 @@ function LiveMatch() {
               Pending attributions
             </SheetTitle>
             <p className="text-left text-xs text-muted-foreground">
-              {pendingScoreEvents.length === 0
-                ? "All scores have been attributed."
-                : "Assign a scorer to each unattributed score."}
+              {pendingEvents.length === 0
+                ? "Everything is attributed."
+                : "Assign a player to each unattributed event."}
             </p>
           </SheetHeader>
           <div className="max-h-[70vh] overflow-y-auto px-4 pb-8 pt-3">
-            {pendingScoreEvents.length === 0 ? (
+            {pendingEvents.length === 0 ? (
               <p className="rounded-2xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
                 Nothing pending.
               </p>
             ) : (
               <ul className="space-y-2">
-                {pendingScoreEvents.map((e) => (
+                {pendingEvents.map((e) => (
                   <li
                     key={e.id}
                     className="rounded-2xl border border-border bg-card p-3 shadow-elegant"
@@ -413,7 +459,7 @@ function LiveMatch() {
                           type="button"
                           onClick={() => {
                             deleteEvent(e.id);
-                            toast("Score removed");
+                            toast("Event removed");
                           }}
                           className="h-9 rounded-xl border border-border bg-secondary px-3 text-xs font-bold uppercase tracking-wider text-secondary-foreground"
                         >
@@ -425,6 +471,39 @@ function LiveMatch() {
                 ))}
               </ul>
             )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <Sheet open={noteOpen} onOpenChange={setNoteOpen}>
+        <SheetContent side="bottom" className="rounded-t-3xl border-none p-0">
+          <SheetHeader className="border-b border-border px-5 pb-4 pt-5">
+            <SheetTitle className="text-left text-lg font-semibold">Coach note</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col gap-3 px-4 pb-6 pt-3">
+            <textarea
+              value={noteText}
+              onChange={(e) => setNoteText(e.target.value)}
+              placeholder="Quick reminder for later…"
+              rows={3}
+              className="w-full rounded-2xl border border-border bg-card p-3 text-sm text-foreground focus:border-accent focus:outline-none"
+            />
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setNoteText(""); setNoteOpen(false); }}
+                className="h-12 flex-1 rounded-2xl border border-border bg-secondary text-sm font-bold uppercase tracking-wider text-secondary-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitCoachNote}
+                className="h-12 flex-1 rounded-2xl bg-accent text-sm font-black uppercase tracking-wider text-accent-foreground"
+              >
+                Save note
+              </button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
