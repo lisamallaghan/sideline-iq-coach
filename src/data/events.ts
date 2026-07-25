@@ -6,6 +6,8 @@ export interface EventDef {
   category: EventCategory;
   score?: number;
   tone: "positive" | "negative" | "neutral";
+  /** If true, recording this event opens the attribution sheet. */
+  attributable?: boolean;
 }
 
 export interface CategoryDef {
@@ -23,11 +25,13 @@ export const EVENT_CATEGORIES: CategoryDef[] = [
     tone: "neutral",
     icon: "Target",
     events: [
-      { type: "kickout_won_clean", label: "Kickout Won (Clean)", category: "possession", tone: "positive" },
-      { type: "kickout_won_break", label: "Kickout Won (Break)", category: "possession", tone: "positive" },
-      { type: "opp_kickout_won", label: "Opposition Kickout Won", category: "possession", tone: "negative" },
-      { type: "turnover_won", label: "Turnover Won", category: "possession", tone: "positive" },
-      { type: "turnover_lost", label: "Turnover Lost", category: "possession", tone: "negative" },
+      { type: "kickout_won_clean", label: "Our Kickout Won", category: "possession", tone: "positive", attributable: true },
+      { type: "kickout_won_break", label: "Our Kickout Won (Break)", category: "possession", tone: "positive", attributable: true },
+      { type: "kickout_lost", label: "Our Kickout Lost", category: "possession", tone: "negative", attributable: true },
+      { type: "opp_kickout_won", label: "Opp Kickout Won", category: "possession", tone: "negative" },
+      { type: "opp_kickout_stolen", label: "Opp Kickout Won by Us", category: "possession", tone: "positive", attributable: true },
+      { type: "turnover_won", label: "Turnover Won", category: "possession", tone: "positive", attributable: true },
+      { type: "turnover_lost", label: "Turnover Lost", category: "possession", tone: "negative", attributable: true },
     ],
   },
   {
@@ -36,8 +40,8 @@ export const EVENT_CATEGORIES: CategoryDef[] = [
     tone: "neutral",
     icon: "Send",
     events: [
-      { type: "kick_pass_lost", label: "Kick Pass Lost", category: "passing", tone: "negative" },
-      { type: "hand_pass_lost", label: "Hand Pass Lost", category: "passing", tone: "negative" },
+      { type: "kick_pass_lost", label: "Kick Pass Lost", category: "passing", tone: "negative", attributable: true },
+      { type: "hand_pass_lost", label: "Hand Pass Lost", category: "passing", tone: "negative", attributable: true },
     ],
   },
   {
@@ -46,13 +50,13 @@ export const EVENT_CATEGORIES: CategoryDef[] = [
     tone: "positive",
     icon: "Crosshair",
     events: [
-      { type: "goal", label: "Goal", category: "shooting", tone: "positive", score: 3 },
-      { type: "two_pointer", label: "Two Pointer", category: "shooting", tone: "positive", score: 2 },
-      { type: "point", label: "Point", category: "shooting", tone: "positive", score: 1 },
-      { type: "wide", label: "Wide", category: "shooting", tone: "negative" },
-      { type: "dropped_short", label: "Dropped Short", category: "shooting", tone: "negative" },
-      { type: "saved", label: "Saved", category: "shooting", tone: "negative" },
-      { type: "blocked", label: "Blocked", category: "shooting", tone: "negative" },
+      { type: "goal", label: "Goal", category: "shooting", tone: "positive", score: 3, attributable: true },
+      { type: "two_pointer", label: "Two Pointer", category: "shooting", tone: "positive", score: 2, attributable: true },
+      { type: "point", label: "Point", category: "shooting", tone: "positive", score: 1, attributable: true },
+      { type: "wide", label: "Wide", category: "shooting", tone: "negative", attributable: true },
+      { type: "dropped_short", label: "Dropped Short", category: "shooting", tone: "negative", attributable: true },
+      { type: "saved", label: "Saved", category: "shooting", tone: "negative", attributable: true },
+      { type: "blocked", label: "Blocked", category: "shooting", tone: "negative", attributable: true },
     ],
   },
   {
@@ -61,9 +65,9 @@ export const EVENT_CATEGORIES: CategoryDef[] = [
     tone: "positive",
     icon: "Shield",
     events: [
-      { type: "block", label: "Block", category: "defence", tone: "positive" },
-      { type: "tackle", label: "Tackle", category: "defence", tone: "positive" },
-      { type: "interception", label: "Interception", category: "defence", tone: "positive" },
+      { type: "block", label: "Block", category: "defence", tone: "positive", attributable: true },
+      { type: "tackle", label: "Great Tackle", category: "defence", tone: "positive", attributable: true },
+      { type: "interception", label: "Interception", category: "defence", tone: "positive", attributable: true },
     ],
   },
   {
@@ -72,10 +76,10 @@ export const EVENT_CATEGORIES: CategoryDef[] = [
     tone: "negative",
     icon: "AlertTriangle",
     events: [
-      { type: "foul_conceded", label: "Foul Conceded", category: "discipline", tone: "negative" },
-      { type: "scorable_free_conceded", label: "Scorable Free Conceded", category: "discipline", tone: "negative" },
-      { type: "yellow_card", label: "Yellow Card", category: "discipline", tone: "negative" },
-      { type: "red_card", label: "Red Card", category: "discipline", tone: "negative" },
+      { type: "foul_conceded", label: "Foul Conceded", category: "discipline", tone: "negative", attributable: true },
+      { type: "scorable_free_conceded", label: "Scorable Free Conceded", category: "discipline", tone: "negative", attributable: true },
+      { type: "yellow_card", label: "Yellow Card", category: "discipline", tone: "negative", attributable: true },
+      { type: "red_card", label: "Red Card", category: "discipline", tone: "negative", attributable: true },
     ],
   },
   {
@@ -84,10 +88,12 @@ export const EVENT_CATEGORIES: CategoryDef[] = [
     tone: "negative",
     icon: "XOctagon",
     events: [
-      { type: "dropped_ball", label: "Dropped Ball", category: "errors", tone: "negative" },
-      { type: "overcarried", label: "Overcarried", category: "errors", tone: "negative" },
-      { type: "poor_decision", label: "Poor Decision", category: "errors", tone: "negative" },
-      { type: "solo_into_traffic", label: "Solo Into Traffic", category: "errors", tone: "negative" },
+      { type: "dropped_ball", label: "Dropped Ball", category: "errors", tone: "negative", attributable: true },
+      { type: "overcarried", label: "Overcarried", category: "errors", tone: "negative", attributable: true },
+      { type: "poor_decision", label: "Poor Decision", category: "errors", tone: "negative", attributable: true },
+      { type: "solo_into_traffic", label: "Solo Into Traffic", category: "errors", tone: "negative", attributable: true },
+      { type: "injury", label: "Injury", category: "errors", tone: "neutral", attributable: true },
+      { type: "coach_note", label: "Coach Note", category: "errors", tone: "neutral" },
     ],
   },
   {
@@ -96,8 +102,8 @@ export const EVENT_CATEGORIES: CategoryDef[] = [
     tone: "positive",
     icon: "Sparkles",
     events: [
-      { type: "assist", label: "Assist", category: "positive", tone: "positive" },
-      { type: "won_free", label: "Won Free", category: "positive", tone: "positive" },
+      { type: "assist", label: "Assist", category: "positive", tone: "positive", attributable: true },
+      { type: "won_free", label: "Foul Won", category: "positive", tone: "positive", attributable: true },
     ],
   },
 ];
