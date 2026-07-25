@@ -180,6 +180,7 @@ function Timeline() {
                   ? "bg-destructive/10 text-destructive border-destructive/25"
                   : "bg-accent/10 text-accent border-accent/25";
             const isScore = e.team === "us" && (def?.score ?? 0) > 0;
+            const isAttributable = Boolean(def?.attributable) && e.team === "us";
             return (
               <li key={e.id} className="relative">
                 <span
@@ -208,7 +209,7 @@ function Timeline() {
                       {e.minute}'
                     </span>
                   </div>
-                  {isScore ? (
+                  {isAttributable ? (
                     <div className="mt-2 flex gap-2">
                       <button
                         type="button"
@@ -218,7 +219,7 @@ function Timeline() {
                         }}
                         className="inline-flex h-8 items-center gap-1 rounded-lg border border-border bg-secondary px-2 text-[11px] font-bold uppercase tracking-wider text-secondary-foreground"
                       >
-                        <Pencil className="h-3 w-3" /> {player ? "Change scorer" : "Assign scorer"}
+                        <Pencil className="h-3 w-3" /> {player ? "Change player" : "Assign player"}
                       </button>
                       <button
                         type="button"
