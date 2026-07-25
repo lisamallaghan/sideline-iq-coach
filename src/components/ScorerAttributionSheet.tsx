@@ -10,6 +10,7 @@ interface Props {
   title?: string;
   scoreLabel?: string;
   players?: Player[];
+  recentPlayers?: Player[];
   onAssign: (playerId: string) => void;
   onSkip: () => void;
   autoDismissMs?: number;
@@ -21,6 +22,7 @@ export function ScorerAttributionSheet({
   title = "Who scored?",
   scoreLabel,
   players,
+  recentPlayers,
   onAssign,
   onSkip,
   autoDismissMs = 6000,
@@ -89,6 +91,28 @@ export function ScorerAttributionSheet({
               Skip for now
             </button>
           </div>
+          {recentPlayers && recentPlayers.length > 0 ? (
+            <div>
+              <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Recent
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {recentPlayers.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => onAssign(p.id)}
+                    className="flex shrink-0 items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-3 py-1.5 text-xs font-bold text-foreground active:scale-95"
+                  >
+                    <span className="grid h-6 w-6 place-items-center rounded-full bg-primary text-[11px] font-black text-primary-foreground">
+                      {p.number}
+                    </span>
+                    {p.name.split(" ")[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="max-h-[45vh] overflow-y-auto">
             <ul className="grid grid-cols-3 gap-2">
               {list.map((p) => {
