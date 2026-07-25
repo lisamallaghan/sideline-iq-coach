@@ -1,11 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { StatCard } from "@/components/StatCard";
 import { InsightCard } from "@/components/InsightCard";
 import { useMatch } from "@/lib/match-store";
 import { EVENT_MAP } from "@/data/events";
 import { MOCK_PLAYERS } from "@/data/players";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Settings2 } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 import { buildCoachFeed } from "@/lib/coach-feed";
 
@@ -55,6 +55,14 @@ function Dashboard() {
 
   return (
     <AppShell title="Dashboard" subtitle="Match Insights" back="/match/live" contentClassName="px-4 py-4 space-y-5">
+      <div className="flex justify-end">
+        <Link
+          to="/new-match"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-foreground shadow-elegant"
+        >
+          <Settings2 className="h-3.5 w-3.5" /> Edit match
+        </Link>
+      </div>
       <div className="grid grid-cols-3 gap-3">
         <StatCard label="Goals" value={ourScore.goals} />
         <StatCard label="Two Pointers" value={ourScore.twoPointers} />
