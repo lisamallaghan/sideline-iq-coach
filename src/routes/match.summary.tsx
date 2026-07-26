@@ -3,7 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import { StatCard } from "@/components/StatCard";
 import { useMatch, formatScore, scoreTotal } from "@/lib/match-store";
 import { EVENT_MAP } from "@/data/events";
-import { MOCK_PLAYERS } from "@/data/players";
+
 import { Button } from "@/components/ui/button";
 import { ListOrdered, Share2, Trophy } from "lucide-react";
 
@@ -18,13 +18,13 @@ export const Route = createFileRoute("/match/summary")({
 });
 
 function Summary() {
-  const { match, ourScore, theirScore } = useMatch();
+  const { match, roster, ourScore, theirScore } = useMatch();
   const events = match?.events ?? [];
 
   const won = scoreTotal(ourScore) > scoreTotal(theirScore);
   const drew = scoreTotal(ourScore) === scoreTotal(theirScore);
 
-  const playerStats = MOCK_PLAYERS.map((p) => {
+  const playerStats = roster.map((p) => {
     const own = events.filter((e) => e.playerId === p.id);
     const scoreEvents = own.filter((e) => EVENT_MAP[e.type]?.score);
     const goals = scoreEvents.filter((e) => EVENT_MAP[e.type]?.score === 3).length;

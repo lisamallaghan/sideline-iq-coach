@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { PlayerEventSheet } from "@/components/PlayerEventSheet";
 import { ScorerAttributionSheet } from "@/components/ScorerAttributionSheet";
 import { useMatch, formatScore } from "@/lib/match-store";
-import { MOCK_PLAYERS } from "@/data/players";
 import type { EventType, Player, Position } from "@/types";
 import { formatClock } from "@/lib/format";
 import { BarChart3, Flag, Pause, Play, Undo2, Users, Wind, Layers, ClipboardList } from "lucide-react";
@@ -11,6 +10,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { EVENT_MAP } from "@/data/events";
 import { EventCentre } from "@/components/EventCentre";
+import { KickoutSheet } from "@/components/KickoutSheet";
 import {
   Sheet,
   SheetContent,
@@ -63,6 +63,8 @@ function LiveMatch() {
     pendingEvents,
     recentPlayerIds,
     setRecordingMode,
+    roster,
+    teamName,
   } = useMatch();
   const [selected, setSelected] = useState<Player | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -76,18 +78,19 @@ function LiveMatch() {
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [confirmChip, setConfirmChip] = useState<{ label: string; tone: "positive" | "negative" | "neutral"; key: number } | null>(null);
+  const [kickoutOpen, setKickoutOpen] = useState(false);
 
   if (!match) return null;
   const mode: "coach" | "lineup" = match.recordingMode ?? "coach";
 
   const startingPlayers = activeStartingXV
-    .map((id) => MOCK_PLAYERS.find((p) => p.id === id))
+    .map((id) => roster.find((p) => p.id === id))
     .filter((p): p is Player => Boolean(p));
   const benchPlayers = activeBench
-    .map((id) => MOCK_PLAYERS.find((p) => p.id === id))
+    .map((id) => roster.find((p) => p.id === id))
     .filter((p): p is Player => Boolean(p));
   const recentPlayers = recentPlayerIds
-    .map((id) => MOCK_PLAYERS.find((p) => p.id === id))
+    .map((id) => roster.find((p) => p.id === id))
     .filter((p): p is Player => Boolean(p));
 
   const handlePlayerTap = (p: Player) => {
@@ -116,10 +119,10 @@ function LiveMatch() {
   // Universal event trigger for Coach Mode.
   // Records instantly, then opens attribution sheet only if the event is
   // attributable AND belongs to our team.
-  const fireEvent = (type: EventType, team: "us" | "opp", label: string) => {
+  const fireEvent = (type: EventType, team: "us" | "opp", label: string, note?: string) => {
     const def = EVENT_MAP[type];
     const category = def?.category ?? "possession";
-    addEvent({ category, type, team });
+    addEvent({ category, type, team, note });
     const displayLabel = team === "opp" && !label.toLowerCase().startsWith("opp") ? `Opp ${label}` : label;
     toast.success(`✓ ${displayLabel} recorded`, {
       duration: 5000,
@@ -155,8 +158,8 @@ function LiveMatch() {
       return;
     }
     performSubstitution(subOff, id);
-    const off = MOCK_PLAYERS.find((p) => p.id === subOff);
-    const on = MOCK_PLAYERS.find((p) => p.id === id);
+    const off = roster.find((p) => p.id === subOff);
+    const on = roster.find((p) => p.id === id);
     toast.success(
       `Sub · #${on?.number} ${on?.name.split(" ")[0]} for #${off?.number} ${off?.name.split(" ")[0]}`,
     );
@@ -169,7 +172,7 @@ function LiveMatch() {
   const assignNow = (playerId: string) => {
     if (attrEventId) {
       updateEvent(attrEventId, { playerId });
-      const p = MOCK_PLAYERS.find((x) => x.id === playerId);
+      const p = roster.find((x) => x.id === playerId);
       toast.success(`${attrLabel} · #${p?.number} ${p?.name.split(" ")[0] ?? ""}`.trim());
     }
     setAttrOpen(false);
@@ -230,7 +233,7 @@ function LiveMatch() {
 
           <div className="mt-2 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
             <div className="min-w-0 text-left">
-              <p className="truncate text-[10px] font-semibold uppercase tracking-widest text-white/60">Ardboe</p>
+              <p className="truncate text-[10px] font-semibold uppercase tracking-widest text-white/60">{teamName}</p>
               <p className="mt-0.5 text-4xl font-black tabular-nums leading-none">{formatScore(ourScore)}</p>
             </div>
             <div className="flex flex-col items-center">
@@ -330,8 +333,11 @@ function LiveMatch() {
       {mode === "coach" ? (
         <EventCentre
           onFire={fireEvent}
+          onKickout={() => setKickoutOpen(true)}
           onSubstitution={openSub}
           onCoachNote={() => setNoteOpen(true)}
+          teamName={teamName}
+          oppositionName={match.opposition || "Opposition"}
         />
       ) : (
       <main className="px-3 pb-24 pt-3 space-y-3">
@@ -516,7 +522,7 @@ function LiveMatch() {
             </SheetTitle>
             <p className="text-left text-xs text-muted-foreground">
               {subOff
-                ? `Choose a bench player to come on for #${MOCK_PLAYERS.find((p) => p.id === subOff)?.number}.`
+                ? `Choose a bench player to come on for #${roster.find((p) => p.id === subOff)?.number}.`
                 : "Choose the player coming off."}
             </p>
           </SheetHeader>
@@ -544,6 +550,8 @@ function LiveMatch() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <KickoutSheet open={kickoutOpen} onOpenChange={setKickoutOpen} onRecord={fireEvent} />
     </div>
   );
 }

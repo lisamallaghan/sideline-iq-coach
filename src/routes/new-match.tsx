@@ -2,18 +2,23 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useMatch } from "@/lib/match-store";
-import { MOCK_PLAYERS, STARTING_XV, BENCH } from "@/data/players";
+import { STARTING_XV, BENCH } from "@/data/players";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ChevronRight, MapPin, Trophy, Users2, Zap, ListChecks } from "lucide-react";
+import type { Player } from "@/types";
+import { ChevronRight, MapPin, Trophy, Users2, Zap, ListChecks, Pencil, Check } from "lucide-react";
 
 export const Route = createFileRoute("/new-match")({
   head: () => ({
     meta: [
       { title: "New Match · Sideline IQ" },
-      { name: "description", content: "Set up a new match — competition, opposition, venue and starting XV." },
+      { name: "description", content: "Set up a new match — teams, venue, squad numbers and starting fifteen." },
+      { property: "og:title", content: "New Match · Sideline IQ" },
+      { property: "og:description", content: "Set up a new match — teams, venue, squad numbers and starting fifteen." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: NewMatch,
@@ -21,8 +26,9 @@ export const Route = createFileRoute("/new-match")({
 
 function NewMatch() {
   const navigate = useNavigate();
-  const { match, createMatch, startMatch } = useMatch();
+  const { match, roster: currentRoster, createMatch, startMatch } = useMatch();
 
+  const [teamName, setTeamName] = useState(match?.teamName ?? "Ardboe");
   const [competition, setCompetition] = useState(match?.competition ?? "");
   const [opposition, setOpposition] = useState(match?.opposition ?? "");
   const [venue, setVenue] = useState(match?.venue ?? "");
@@ -31,6 +37,8 @@ function NewMatch() {
   const [duration, setDuration] = useState<number>(match?.duration ?? 30);
   const [starting, setStarting] = useState<string[]>(match?.startingXV ?? STARTING_XV);
   const [bench, setBench] = useState<string[]>(match?.bench ?? BENCH);
+  const [roster, setRoster] = useState<Player[]>(currentRoster);
+  const [editSquad, setEditSquad] = useState(false);
   const [recordingMode, setRecordingModeLocal] = useState<"coach" | "lineup">(
     match?.recordingMode ?? "coach",
   );
@@ -47,8 +55,12 @@ function NewMatch() {
     }
   };
 
+  const patchPlayer = (id: string, patch: Partial<Player>) =>
+    setRoster((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
+
   const submit = () => {
     createMatch({
+      teamName: teamName.trim() || "Our Team",
       competition: competition || "Friendly",
       opposition: opposition || "TBC",
       venue: venue || "Home",
@@ -58,6 +70,7 @@ function NewMatch() {
       startingXV: starting.slice(0, 15),
       bench,
       recordingMode,
+      roster,
     });
     startMatch();
     navigate({ to: "/match/live" });
@@ -70,17 +83,25 @@ function NewMatch() {
       <div className="space-y-6">
         <section className="space-y-3">
           <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="min-w-0">
+                <Label htmlFor="teamName" className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Our team
+                </Label>
+                <Input id="teamName" value={teamName} onChange={(e) => setTeamName(e.target.value)} placeholder="Ardboe" className="h-12 rounded-xl" />
+              </div>
+              <div className="min-w-0">
+                <Label htmlFor="opposition" className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Opposition
+                </Label>
+                <Input id="opposition" value={opposition} onChange={(e) => setOpposition(e.target.value)} placeholder="Ballyboden" className="h-12 rounded-xl" />
+              </div>
+            </div>
             <div>
               <Label htmlFor="competition" className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 <Trophy className="mr-1 inline h-3.5 w-3.5" /> Competition
               </Label>
               <Input id="competition" value={competition} onChange={(e) => setCompetition(e.target.value)} placeholder="Leinster Senior Championship" className="h-12 rounded-xl" />
-            </div>
-            <div>
-              <Label htmlFor="opposition" className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Opposition
-              </Label>
-              <Input id="opposition" value={opposition} onChange={(e) => setOpposition(e.target.value)} placeholder="Ballyboden St. Enda's" className="h-12 rounded-xl" />
             </div>
             <div>
               <Label htmlFor="venue" className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
@@ -89,15 +110,15 @@ function NewMatch() {
               <Input id="venue" value={venue} onChange={(e) => setVenue(e.target.value)} placeholder="Parnell Park" className="h-12 rounded-xl" />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
+              <div className="min-w-0">
                 <Label htmlFor="date" className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   Date
                 </Label>
-                <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-12 rounded-xl" />
+                <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-12 w-full rounded-xl" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <Label className="mb-1.5 block text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  Duration (per half)
+                  Half length
                 </Label>
                 <div className="flex gap-1 rounded-xl bg-secondary p-1">
                   {[25, 30, 35].map((d) => (
@@ -149,19 +170,12 @@ function NewMatch() {
               onClick={() => setRecordingModeLocal("coach")}
               className={cn(
                 "flex flex-col items-start gap-1 rounded-2xl border p-3 text-left shadow-elegant transition",
-                recordingMode === "coach"
-                  ? "border-accent bg-accent/10"
-                  : "border-border bg-card",
+                recordingMode === "coach" ? "border-accent bg-accent/10" : "border-border bg-card",
               )}
             >
-              <div className="flex w-full items-center justify-between">
-                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-foreground">
-                  <Zap className="h-4 w-4 text-accent" /> Coach Mode
-                </span>
-                <span className="rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-accent-foreground">
-                  Recommended
-                </span>
-              </div>
+              <span className="inline-flex min-w-0 items-center gap-1.5 text-sm font-bold text-foreground">
+                <Zap className="h-4 w-4 shrink-0 text-accent" /> Coach Mode
+              </span>
               <p className="text-[11px] leading-snug text-muted-foreground">
                 Event-first. Record what happened in one tap; attribute a player after.
               </p>
@@ -171,33 +185,57 @@ function NewMatch() {
               onClick={() => setRecordingModeLocal("lineup")}
               className={cn(
                 "flex flex-col items-start gap-1 rounded-2xl border p-3 text-left shadow-elegant transition",
-                recordingMode === "lineup"
-                  ? "border-accent bg-accent/10"
-                  : "border-border bg-card",
+                recordingMode === "lineup" ? "border-accent bg-accent/10" : "border-border bg-card",
               )}
             >
-              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-foreground">
-                <ListChecks className="h-4 w-4" /> Line-up Mode
+              <span className="inline-flex min-w-0 items-center gap-1.5 text-sm font-bold text-foreground">
+                <ListChecks className="h-4 w-4 shrink-0" /> Line-up Mode
               </span>
               <p className="text-[11px] leading-snug text-muted-foreground">
-                Player-first. Pick the player, then the event — the current workflow.
+                Player-first. Pick the player, then the event.
               </p>
             </button>
           </div>
         </section>
 
         <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              <Users2 className="mr-1 inline h-3.5 w-3.5" /> Starting XV
+          <div className="mb-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+            <h2 className="truncate text-sm font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <Users2 className="mr-1 inline h-3.5 w-3.5" /> Squad · {starting.length} starting
             </h2>
-            <span className="text-xs font-semibold text-accent">{starting.length} selected</span>
+            <button
+              type="button"
+              onClick={() => setEditSquad((v) => !v)}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-foreground"
+            >
+              {editSquad ? <Check className="h-3.5 w-3.5" /> : <Pencil className="h-3.5 w-3.5" />}
+              {editSquad ? "Done" : "Edit names"}
+            </button>
           </div>
           <div className="rounded-2xl border border-border bg-card p-2 shadow-elegant">
             <ul className="divide-y divide-border">
-              {MOCK_PLAYERS.map((p) => {
+              {roster.map((p) => {
                 const inStart = starting.includes(p.id);
                 const inBench = bench.includes(p.id);
+                if (editSquad) {
+                  return (
+                    <li key={p.id} className="flex items-center gap-2 p-2">
+                      <Input
+                        value={String(p.number)}
+                        inputMode="numeric"
+                        onChange={(e) =>
+                          patchPlayer(p.id, { number: Number(e.target.value.replace(/\D/g, "").slice(0, 2)) || 0 })
+                        }
+                        className="h-11 w-14 shrink-0 rounded-xl text-center font-bold tabular-nums"
+                      />
+                      <Input
+                        value={p.name}
+                        onChange={(e) => patchPlayer(p.id, { name: e.target.value })}
+                        className="h-11 min-w-0 flex-1 rounded-xl"
+                      />
+                    </li>
+                  );
+                }
                 return (
                   <li key={p.id}>
                     <button
@@ -205,7 +243,7 @@ function NewMatch() {
                       onClick={() => togglePlayer(p.id)}
                       className="flex w-full items-center gap-3 p-3 text-left transition active:bg-secondary"
                     >
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold tabular-nums text-primary-foreground">
                         {p.number}
                       </span>
                       <div className="min-w-0 flex-1">
@@ -217,7 +255,7 @@ function NewMatch() {
                       </div>
                       <span
                         className={cn(
-                          "rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-widest",
+                          "shrink-0 rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-widest",
                           inStart
                             ? "bg-success/15 text-success"
                             : inBench

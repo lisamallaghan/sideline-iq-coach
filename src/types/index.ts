@@ -78,6 +78,7 @@ export interface MatchEvent {
 }
 
 export interface MatchSetup {
+  teamName: string;
   competition: string;
   opposition: string;
   venue: string;
@@ -87,6 +88,8 @@ export interface MatchSetup {
   startingXV: string[]; // player ids
   bench: string[];
   recordingMode?: "coach" | "lineup";
+  /** Editable squad for this match. Falls back to the default squad. */
+  roster?: Player[];
 }
 
 export interface Match extends MatchSetup {

@@ -8,13 +8,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Match, MatchEvent, MatchSetup, Substitution } from "@/types";
+import type { Match, MatchEvent, MatchSetup, Player, Substitution } from "@/types";
 import type { PossessionOwner, PossessionPeriod } from "@/types";
-import { BENCH, STARTING_XV } from "@/data/players";
+import { BENCH, MOCK_PLAYERS, STARTING_XV } from "@/data/players";
 import { EVENT_MAP } from "@/data/events";
 
 interface MatchStore {
   match: Match | null;
+  roster: Player[];
+  teamName: string;
+  playerById: (id: string | undefined) => Player | undefined;
   createMatch: (setup: MatchSetup) => void;
   startMatch: () => void;
   finishMatch: () => void;
@@ -63,6 +66,7 @@ export interface TeamScore {
 const MatchCtx = createContext<MatchStore | null>(null);
 
 const DEFAULT_SETUP: MatchSetup = {
+  teamName: "Ardboe",
   competition: "Leinster Senior Championship",
   opposition: "Ballyboden St. Enda's",
   venue: "Parnell Park",
@@ -72,6 +76,7 @@ const DEFAULT_SETUP: MatchSetup = {
   startingXV: STARTING_XV,
   bench: BENCH,
   recordingMode: "coach",
+  roster: MOCK_PLAYERS,
 };
 
 const MODE_STORAGE_KEY = "sideline-iq.recording-mode";
@@ -296,6 +301,12 @@ export function MatchProvider({ children }: { children: ReactNode }) {
 
   const lastEvent = match?.events.length ? match.events[match.events.length - 1] : null;
 
+  const roster = useMemo(() => match?.roster ?? MOCK_PLAYERS, [match?.roster]);
+  const playerById = useCallback(
+    (id: string | undefined) => (id ? roster.find((p) => p.id === id) : undefined),
+    [roster],
+  );
+
   const possessionStats = useMemo(() => {
     const now = Date.now();
     void nowTick;
@@ -318,6 +329,9 @@ export function MatchProvider({ children }: { children: ReactNode }) {
 
   const value: MatchStore = {
     match,
+    roster,
+    teamName: match?.teamName || "Ardboe",
+    playerById,
     createMatch,
     startMatch,
     finishMatch,
