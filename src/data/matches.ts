@@ -56,6 +56,7 @@ export const PREVIOUS_MATCH_SUMMARIES = [
 ];
 
 export const UPCOMING_FIXTURE = {
+  teamName: "Ardboe",
   competition: "Leinster Senior Championship",
   opposition: "Ballyboden St. Enda's",
   venue: "Parnell Park",
