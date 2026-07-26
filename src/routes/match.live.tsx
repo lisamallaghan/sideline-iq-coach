@@ -550,6 +550,8 @@ function LiveMatch() {
           </div>
         </SheetContent>
       </Sheet>
+
+      <KickoutSheet open={kickoutOpen} onOpenChange={setKickoutOpen} onRecord={fireEvent} />
     </div>
   );
 }
