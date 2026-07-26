@@ -4,6 +4,7 @@ import { BENCH, STARTING_XV } from "./players";
 export const PREVIOUS_MATCHES: Match[] = [
   {
     id: "m-prev-1",
+    teamName: "Ardboe",
     competition: "Leinster Senior Championship",
     opposition: "St. Brigid's",
     venue: "Parnell Park",
@@ -19,6 +20,7 @@ export const PREVIOUS_MATCHES: Match[] = [
   },
   {
     id: "m-prev-2",
+    teamName: "Ardboe",
     competition: "League Div 1",
     opposition: "Kilmacud Crokes",
     venue: "Silver Park",
@@ -34,6 +36,7 @@ export const PREVIOUS_MATCHES: Match[] = [
   },
   {
     id: "m-prev-3",
+    teamName: "Ardboe",
     competition: "League Div 1",
     opposition: "Foxrock-Cabinteely",
     venue: "Home",
@@ -56,6 +59,7 @@ export const PREVIOUS_MATCH_SUMMARIES = [
 ];
 
 export const UPCOMING_FIXTURE = {
+  teamName: "Ardboe",
   teamName: "Ardboe",
   competition: "Leinster Senior Championship",
   opposition: "Ballyboden St. Enda's",
