@@ -3,7 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { cn } from "@/lib/utils";
 import { EVENT_MAP } from "@/data/events";
 import type { EventType } from "@/types";
-import { MoreHorizontal, Users, StickyNote } from "lucide-react";
+import { MoreHorizontal, Users, StickyNote, ArrowUpFromLine } from "lucide-react";
 
 export interface EventTrigger {
   type: EventType;
@@ -14,43 +14,50 @@ export interface EventTrigger {
 
 interface Props {
   onFire: (type: EventType, team: "us" | "opp", label: string) => void;
+  onKickout: () => void;
   onSubstitution: () => void;
   onCoachNote: () => void;
+  teamName?: string;
+  oppositionName?: string;
 }
 
-const PRIMARY: EventTrigger[][] = [
-  [
-    { type: "goal", team: "us", label: "+ Goal", tone: "brand" },
-    { type: "two_pointer", team: "us", label: "+ 2 Pt", tone: "brand" },
-    { type: "point", team: "us", label: "+ Point", tone: "brand" },
-  ],
-  [
-    { type: "goal", team: "opp", label: "Opp Goal", tone: "negative" },
-    { type: "two_pointer", team: "opp", label: "Opp 2 Pt", tone: "negative" },
-    { type: "point", team: "opp", label: "Opp Point", tone: "negative" },
-  ],
+/** Highest-frequency scoring actions — always visible. */
+const OURS: EventTrigger[] = [
+  { type: "goal", team: "us", label: "Goal", tone: "brand" },
+  { type: "two_pointer", team: "us", label: "2 Pt", tone: "brand" },
+  { type: "point", team: "us", label: "Point", tone: "brand" },
 ];
 
-const POSSESSION: EventTrigger[] = [
-  { type: "kickout_won_clean", team: "us", label: "Our KO ✓", tone: "positive" },
-  { type: "kickout_lost", team: "us", label: "Our KO ✗", tone: "negative" },
-  { type: "opp_kickout_stolen", team: "us", label: "Their KO ✓", tone: "positive" },
-  { type: "opp_kickout_won", team: "opp", label: "Their KO ✗", tone: "negative" },
-  { type: "turnover_won", team: "us", label: "Won TO", tone: "positive" },
-  { type: "turnover_lost", team: "us", label: "Lost TO", tone: "negative" },
+const THEIRS: EventTrigger[] = [
+  { type: "goal", team: "opp", label: "Goal", tone: "negative" },
+  { type: "two_pointer", team: "opp", label: "2 Pt", tone: "negative" },
+  { type: "point", team: "opp", label: "Point", tone: "negative" },
 ];
 
-const MISC: EventTrigger[] = [
+/** Turnovers happen constantly — full words, no abbreviations. */
+const TURNOVERS: EventTrigger[] = [
+  { type: "turnover_won", team: "us", label: "Turnover Won", tone: "positive" },
+  { type: "turnover_lost", team: "us", label: "Turnover Lost", tone: "negative" },
+];
+
+/** Frequent enough to stay on screen. */
+const SHOOTING: EventTrigger[] = [
   { type: "wide", team: "us", label: "Wide", tone: "negative" },
   { type: "dropped_short", team: "us", label: "Dropped Short", tone: "negative" },
-  { type: "won_free", team: "us", label: "Foul Won", tone: "positive" },
+  { type: "won_free", team: "us", label: "Free Won", tone: "positive" },
   { type: "foul_conceded", team: "us", label: "Foul Conceded", tone: "negative" },
 ];
 
+/** Everything rarer than roughly once a half lives behind More. */
 const MORE: EventTrigger[] = [
   { type: "block", team: "us", label: "Block", tone: "positive" },
   { type: "interception", team: "us", label: "Interception", tone: "positive" },
   { type: "tackle", team: "us", label: "Great Tackle", tone: "positive" },
+  { type: "saved", team: "us", label: "Shot Saved", tone: "negative" },
+  { type: "kick_pass_lost", team: "us", label: "Kick Pass Lost", tone: "negative" },
+  { type: "hand_pass_lost", team: "us", label: "Hand Pass Lost", tone: "negative" },
+  { type: "dropped_ball", team: "us", label: "Dropped Ball", tone: "negative" },
+  { type: "overcarried", team: "us", label: "Overcarried", tone: "negative" },
   { type: "scorable_free_conceded", team: "us", label: "Scorable Free Conceded", tone: "negative" },
   { type: "yellow_card", team: "us", label: "Yellow Card", tone: "negative" },
   { type: "red_card", team: "us", label: "Red Card", tone: "negative" },
@@ -73,21 +80,23 @@ function toneCls(tone: EventTrigger["tone"]) {
 function EventButton({
   t,
   onFire,
-  size = "md",
+  className,
+  textCls = "text-[13px]",
 }: {
   t: EventTrigger;
   onFire: Props["onFire"];
-  size?: "lg" | "md" | "sm";
+  className?: string;
+  textCls?: string;
 }) {
-  const h = size === "lg" ? "h-16" : size === "sm" ? "h-11" : "h-14";
   return (
     <button
       type="button"
       onClick={() => onFire(t.type, t.team, t.label)}
       className={cn(
-        "flex w-full items-center justify-center rounded-2xl text-sm font-black uppercase tracking-wider shadow-elegant transition active:scale-[0.96]",
-        h,
+        "flex w-full items-center justify-center rounded-2xl px-1.5 text-center font-black uppercase leading-tight tracking-wide shadow-elegant transition active:scale-[0.96]",
+        textCls,
         toneCls(t.tone),
+        className,
       )}
     >
       {t.label}
@@ -95,84 +104,81 @@ function EventButton({
   );
 }
 
-export function EventCentre({ onFire, onSubstitution, onCoachNote }: Props) {
-  const [moreOpen, setMoreOpen] = useState(false);
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="space-y-3 px-3 pt-3 pb-24">
+    <p className="mb-1 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
+export function EventCentre({
+  onFire,
+  onKickout,
+  onSubstitution,
+  onCoachNote,
+  teamName = "Ours",
+  oppositionName = "Opposition",
+}: Props) {
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  return (
+    <div className="space-y-2.5 px-3 pt-2.5 pb-24">
       <section>
-        <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-          Our Score
-        </p>
+        <SectionLabel>{teamName} score</SectionLabel>
         <div className="grid grid-cols-3 gap-2">
-          {PRIMARY[0].map((t) => (
-            <EventButton key={t.label} t={t} onFire={onFire} size="lg" />
+          {OURS.map((t) => (
+            <EventButton key={t.label} t={t} onFire={onFire} className="h-[60px] text-base" />
           ))}
         </div>
       </section>
 
       <section>
-        <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-          Opposition
-        </p>
+        <SectionLabel>{oppositionName} score</SectionLabel>
         <div className="grid grid-cols-3 gap-2">
-          {PRIMARY[1].map((t) => (
-            <EventButton key={t.label} t={t} onFire={onFire} size="md" />
+          {THEIRS.map((t) => (
+            <EventButton key={t.label} t={t} onFire={onFire} className="h-11" />
           ))}
         </div>
       </section>
 
       <section>
-        <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-          Possession
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {POSSESSION.map((t) => (
-            <EventButton key={t.label} t={t} onFire={onFire} size="md" />
+        <SectionLabel>Possession</SectionLabel>
+        <div className="grid grid-cols-3 gap-2">
+          <button
+            type="button"
+            onClick={onKickout}
+            className="flex h-12 items-center justify-center gap-1.5 rounded-2xl border border-border bg-card text-[13px] font-black uppercase tracking-wide text-foreground shadow-elegant active:scale-[0.96]"
+          >
+            <ArrowUpFromLine className="h-4 w-4 shrink-0" /> Kickout
+          </button>
+          {TURNOVERS.map((t) => (
+            <EventButton key={t.label} t={t} onFire={onFire} className="h-12" textCls="text-[11px]" />
           ))}
         </div>
       </section>
 
       <section>
-        <p className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-          Shooting & Discipline
-        </p>
-        <div className="grid grid-cols-2 gap-2">
-          {MISC.map((t) => (
-            <EventButton key={t.label} t={t} onFire={onFire} size="md" />
+        <SectionLabel>Shooting &amp; discipline</SectionLabel>
+        <div className="grid grid-cols-4 gap-2">
+          {SHOOTING.map((t) => (
+            <EventButton key={t.label} t={t} onFire={onFire} className="h-12" textCls="text-[10px]" />
           ))}
         </div>
       </section>
 
-      <div className="grid grid-cols-3 gap-2 pt-1">
-        <button
-          type="button"
-          onClick={() => setMoreOpen(true)}
-          className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-border bg-card text-sm font-black uppercase tracking-wider shadow-elegant active:scale-[0.96]"
-        >
-          <MoreHorizontal className="h-4 w-4" /> More
-        </button>
-        <button
-          type="button"
-          onClick={onSubstitution}
-          className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-border bg-card text-sm font-black uppercase tracking-wider shadow-elegant active:scale-[0.96]"
-        >
-          <Users className="h-4 w-4" /> Sub
-        </button>
-        <button
-          type="button"
-          onClick={onCoachNote}
-          className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-border bg-card text-sm font-black uppercase tracking-wider shadow-elegant active:scale-[0.96]"
-        >
-          <StickyNote className="h-4 w-4" /> Note
-        </button>
+      <div className="grid grid-cols-3 gap-2 pt-0.5">
+        <UtilityButton onClick={() => setMoreOpen(true)} icon={MoreHorizontal} label="More" />
+        <UtilityButton onClick={onSubstitution} icon={Users} label="Sub" />
+        <UtilityButton onClick={onCoachNote} icon={StickyNote} label="Note" />
       </div>
 
       <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-        <SheetContent side="bottom" className="max-h-[80vh] rounded-t-3xl border-none p-0">
-          <SheetHeader className="border-b border-border px-5 pb-4 pt-5">
+        <SheetContent side="bottom" className="max-h-[82vh] rounded-t-3xl border-none p-0">
+          <SheetHeader className="border-b border-border px-5 pb-3 pt-4">
             <SheetTitle className="text-left text-lg font-semibold">More events</SheetTitle>
           </SheetHeader>
-          <div className="grid grid-cols-2 gap-2 px-4 pb-8 pt-3">
+          <div className="grid max-h-[70vh] grid-cols-2 gap-2 overflow-y-auto px-4 pb-8 pt-3">
             {MORE.map((t) => (
               <button
                 key={t.label}
@@ -182,7 +188,7 @@ export function EventCentre({ onFire, onSubstitution, onCoachNote }: Props) {
                   setMoreOpen(false);
                 }}
                 className={cn(
-                  "flex h-16 items-center justify-center rounded-2xl text-sm font-black uppercase tracking-wider shadow-elegant transition active:scale-[0.96]",
+                  "flex h-14 items-center justify-center rounded-2xl px-2 text-center text-[13px] font-black uppercase leading-tight tracking-wide shadow-elegant transition active:scale-[0.96]",
                   toneCls(t.tone),
                 )}
               >
@@ -193,6 +199,26 @@ export function EventCentre({ onFire, onSubstitution, onCoachNote }: Props) {
         </SheetContent>
       </Sheet>
     </div>
+  );
+}
+
+function UtilityButton({
+  onClick,
+  icon: Icon,
+  label,
+}: {
+  onClick: () => void;
+  icon: typeof Users;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex h-11 items-center justify-center gap-1.5 rounded-2xl border border-border bg-card text-xs font-black uppercase tracking-wider text-foreground shadow-elegant active:scale-[0.96]"
+    >
+      <Icon className="h-4 w-4 shrink-0" /> {label}
+    </button>
   );
 }
 
