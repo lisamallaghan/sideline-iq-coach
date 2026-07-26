@@ -522,7 +522,7 @@ function LiveMatch() {
             </SheetTitle>
             <p className="text-left text-xs text-muted-foreground">
               {subOff
-                ? `Choose a bench player to come on for #${MOCK_PLAYERS.find((p) => p.id === subOff)?.number}.`
+                ? `Choose a bench player to come on for #${roster.find((p) => p.id === subOff)?.number}.`
                 : "Choose the player coming off."}
             </p>
           </SheetHeader>
