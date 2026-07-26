@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { MOCK_PLAYERS } from "@/data/players";
+
 import { Input } from "@/components/ui/input";
+import { useMatch } from "@/lib/match-store";
 import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -28,8 +29,9 @@ const POSITION_LABEL: Record<string, string> = {
 };
 
 function Players() {
+  const { roster } = useMatch();
   const [q, setQ] = useState("");
-  const filtered = MOCK_PLAYERS.filter(
+  const filtered = roster.filter(
     (p) => p.name.toLowerCase().includes(q.toLowerCase()) || String(p.number).includes(q),
   );
 

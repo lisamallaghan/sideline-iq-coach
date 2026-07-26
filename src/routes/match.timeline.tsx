@@ -3,7 +3,7 @@ import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { useMatch } from "@/lib/match-store";
 import { EVENT_MAP } from "@/data/events";
-import { MOCK_PLAYERS } from "@/data/players";
+
 import { cn } from "@/lib/utils";
 import { Crosshair, Shield, Send, Target, AlertTriangle, XOctagon, Sparkles, ArrowRightLeft, Users, Pencil, Trash2 } from "lucide-react";
 import { formatClock } from "@/lib/format";
@@ -41,7 +41,7 @@ const FILTERS: Array<{ id: FilterId; label: string }> = [
 ];
 
 function Timeline() {
-  const { match, possessionPeriods, substitutions, updateEvent, deleteEvent } = useMatch();
+  const { match, roster, teamName, possessionPeriods, substitutions, updateEvent, deleteEvent } = useMatch();
   const [filter, setFilter] = useState<FilterId>("all");
   const [editId, setEditId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
@@ -117,7 +117,7 @@ function Timeline() {
           {items.map((it) => {
             if (it.kind === "possession") {
               const label =
-                it.owner === "us" ? "Ardboe" : it.owner === "opp" ? "Opposition" : "Out of Play";
+                it.owner === "us" ? teamName : it.owner === "opp" ? "Opposition" : "Out of Play";
               const dot =
                 it.owner === "us"
                   ? "bg-accent/15 text-accent border-accent/25"
@@ -146,8 +146,8 @@ function Timeline() {
               );
             }
             if (it.kind === "substitution") {
-              const off = MOCK_PLAYERS.find((p) => p.id === it.offId);
-              const on = MOCK_PLAYERS.find((p) => p.id === it.onId);
+              const off = roster.find((p) => p.id === it.offId);
+              const on = roster.find((p) => p.id === it.onId);
               return (
                 <li key={it.id} className="relative">
                   <span className="absolute -left-[26px] top-3 grid h-6 w-6 place-items-center rounded-full border-2 border-background bg-accent/15 text-accent border-accent/25">
@@ -171,7 +171,7 @@ function Timeline() {
             }
             const e = it.data;
             const def = EVENT_MAP[e.type];
-            const player = MOCK_PLAYERS.find((p) => p.id === e.playerId);
+            const player = roster.find((p) => p.id === e.playerId);
             const Icon = CAT_ICON[e.category];
             const tone =
               def?.tone === "positive"
@@ -261,7 +261,7 @@ function Timeline() {
         onAssign={(playerId) => {
           if (editId) {
             updateEvent(editId, { playerId });
-            const p = MOCK_PLAYERS.find((x) => x.id === playerId);
+            const p = roster.find((x) => x.id === playerId);
             toast.success(`${editLabel} · #${p?.number} ${p?.name.split(" ")[0] ?? ""}`.trim());
           }
           setEditId(null);

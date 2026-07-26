@@ -4,7 +4,7 @@ import { StatCard } from "@/components/StatCard";
 import { InsightCard } from "@/components/InsightCard";
 import { useMatch } from "@/lib/match-store";
 import { EVENT_MAP } from "@/data/events";
-import { MOCK_PLAYERS } from "@/data/players";
+
 import { TrendingUp, TrendingDown, Settings2 } from "lucide-react";
 import { formatDuration } from "@/lib/format";
 import { buildCoachFeed } from "@/lib/coach-feed";
@@ -20,7 +20,7 @@ export const Route = createFileRoute("/match/dashboard")({
 });
 
 function Dashboard() {
-  const { match, possessionStats, currentMinute, ourScore } = useMatch();
+  const { match, roster, teamName, possessionStats, currentMinute, ourScore } = useMatch();
   const events = match?.events ?? [];
 
   const shots = events.filter((e) => e.category === "shooting" && e.team === "us");
@@ -51,7 +51,7 @@ function Dashboard() {
     perPlayer.set(e.playerId, cur);
   }
   const topEntry = [...perPlayer.entries()].sort((a, b) => b[1].total - a[1].total)[0];
-  const topPlayer = topEntry ? MOCK_PLAYERS.find((p) => p.id === topEntry[0]) : null;
+  const topPlayer = topEntry ? roster.find((p) => p.id === topEntry[0]) : null;
 
   return (
     <AppShell title="Dashboard" subtitle="Match Insights" back="/match/live" contentClassName="px-4 py-4 space-y-5">
@@ -91,7 +91,7 @@ function Dashboard() {
         <div className="rounded-2xl border border-border bg-card p-4 shadow-elegant">
           <div className="flex items-baseline justify-between">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">Ardboe</p>
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{teamName}</p>
               <p className="text-3xl font-bold tabular-nums text-accent">{usPct}%</p>
               <p className="text-[11px] text-muted-foreground">{formatDuration(usMs)}</p>
             </div>
